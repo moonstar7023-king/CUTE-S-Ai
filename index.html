@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#070707">
+<title>CUTE-S AI</title><link rel="icon" href="icon.png"><link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--red:#e5162d;--hi:#ff4258;--lo:#c40f25;--rose:#ffd6df;--mute:#c9a9b2;--line:rgba(255,255,255,.1);--err:#ff8095;--serif:'Cormorant Garamond',Georgia,serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',system-ui,sans-serif;min-height:100dvh;color:#f6eef0;overflow-x:hidden;
+background:radial-gradient(60% 40% at 50% 0,rgba(229,22,45,.18),transparent 70%),radial-gradient(70% 40% at 50% 100%,rgba(255,120,150,.08),transparent 70%),#070707 fixed}
+button,input{font:inherit;color:inherit}button{cursor:pointer}[hidden]{display:none!important}
+.h{position:fixed;bottom:-30px;color:var(--hi);opacity:.25;pointer-events:none;animation:up linear forwards}@keyframes up{to{transform:translateY(-115vh) rotate(25deg);opacity:0}}
+.page{position:relative;z-index:1;max-width:440px;margin:auto;min-height:100dvh;padding:max(18px,env(safe-area-inset-top)) 22px max(26px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hero{width:190px;-webkit-mask-image:radial-gradient(closest-side,#000 72%,transparent);mask-image:radial-gradient(closest-side,#000 72%,transparent);animation:fl 4s ease-in-out infinite}.hero img{width:100%;display:block}
+@keyframes fl{50%{transform:translateY(-6px)}}
+.brand{font-family:var(--serif);font-weight:600;font-size:44px;letter-spacing:3px;color:var(--rose);text-shadow:0 0 22px rgba(255,120,150,.35);margin-top:-8px}.brand b{color:var(--hi)}
+.tag{font-family:var(--serif);font-style:italic;color:var(--mute);margin-top:4px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}.chips span{font-size:11px;padding:5px 10px;border:1px solid var(--line);border-radius:99px;color:var(--rose);background:rgba(255,255,255,.04)}
+.card{width:100%;margin-top:20px;padding:24px 20px 20px;background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(16px);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+h2{font-family:var(--serif);font-size:28px;text-align:center;color:var(--rose)}.sub{font-size:13px;text-align:center;color:#b9a8ad;margin:4px 0 18px}
+.tabs{position:relative;display:grid;grid-template-columns:1fr 1fr;padding:4px;margin-bottom:18px;border-radius:13px;background:rgba(0,0,0,.45);border:1px solid var(--line)}
+.pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:10px;background:linear-gradient(180deg,var(--hi),var(--lo));transition:transform .3s}.tabs[data-m=mobile] .pill{transform:translateX(100%)}
+.tab{position:relative;z-index:1;padding:11px;background:none;border:0;font-size:13px;color:#b9a8ad}.tab.on{color:#fff;font-weight:600}
+label.f{display:block;font-size:12px;color:var(--rose);margin:0 0 7px}.w{display:flex;align-items:center;gap:8px;padding:0 6px 0 14px;margin-bottom:14px;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:12px}
+.w:focus-within{border-color:var(--hi);box-shadow:0 0 0 3px rgba(255,66,88,.15)}.w input{width:100%;padding:14px 0;border:0;outline:0;background:none;font-size:16px}.w input::placeholder{color:#75676b}
+.pre{padding-right:10px;border-right:1px solid var(--line);color:#b9a8ad;font-size:14px}.eye{width:38px;height:38px;border:0;background:none;font-size:17px}
+.btn{width:100%;padding:15px;border:0;border-radius:13px;background:linear-gradient(180deg,var(--hi),var(--lo));color:#fff;font-weight:600;font-size:15px;box-shadow:0 8px 22px rgba(229,22,45,.35)}.btn:disabled{opacity:.6}
+.lk{background:none;border:0;color:var(--rose);font-size:12px;text-decoration:underline;text-underline-offset:3px;padding:4px 0}
+.row{display:flex;justify-content:space-between;margin:-4px 0 12px}.ck{display:flex;gap:10px;font-size:12px;line-height:1.5;color:#b9a8ad;margin-bottom:14px}.ck input{accent-color:var(--red);width:18px;height:18px;flex:none}
+.msg{min-height:18px;margin-bottom:10px;font-size:12.5px;text-align:center;color:var(--err)}.msg.ok{color:#9be8b0}
+.sw{text-align:center;margin-top:14px;font-size:13px;color:#b9a8ad}.foot{margin-top:16px;font-size:11px;color:#75676b;text-align:center}.foot a{color:var(--mute)}
+</style></head><body>
+<div class="page">
+<div class="hero"><img src="logo.png" alt="CUTE-S AI logo"></div>
+<div class="brand">CUTE-S <b>AI</b></div><div class="tag">Your free study buddy</div>
+<div class="chips"><span>🤖 AI Tutor</span><span>📚 Shared Notes</span><span>💗 100% Free</span></div>
+<div class="card"><h2 id="h">Welcome back</h2><p class="sub" id="s">Login to continue your studies</p>
+<div class="tabs" id="tabs" data-m="email"><div class="pill"></div><button class="tab on" data-m="email">✉️ Email</button><button class="tab" data-m="mobile">📱 Mobile</button></div>
+<div id="pe"><label class="f">Email</label><div class="w"><input id="em" type="email" placeholder="you@example.com" autocomplete="email"></div>
+<label class="f">Password</label><div class="w"><input id="pw" type="password" placeholder="Min 8 characters" autocomplete="current-password"><button class="eye" id="eye" type="button" aria-label="Show password">👁</button></div>
+<div class="row" id="fgr"><span></span><button class="lk" id="fg" type="button">Forgot password?</button></div></div>
+<div id="pm" hidden><label class="f">Mobile number</label><div class="w"><span class="pre">+92</span><input id="ph" type="tel" inputmode="numeric" placeholder="3XX XXXXXXX" maxlength="11" autocomplete="tel-national"></div>
+<div id="ob" hidden><label class="f">6-digit code</label><div class="w"><input id="otp" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code" style="letter-spacing:8px;text-align:center"></div></div></div>
+<label class="ck" id="tw" hidden><input type="checkbox" id="tm"><span>I agree to the <a class="lk" href="privacy.html" style="padding:0">Privacy Policy & Terms</a></span></label>
+<p class="msg" id="msg" role="alert"></p><button class="btn" id="go">Login</button>
+<p class="sw"><span id="swt">New here?</span> <button class="lk" id="sw" type="button">Create account</button></p><div id="rc"></div></div>
+<p class="foot">🔒 Secure login · <a href="privacy.html">Privacy</a> · Made by iTz×͜Shahmir</p></div>
+<script src="https://www.gstatic.com/firebase10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebase10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebase10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebase10.12.2/firebase-storage-compat.js"></script>
+<script src="firebase-config.js"></script><script src="auth.js"></script>
+<script>setInterval(()=>{const e=document.createElement('div');e.className='h';e.textContent='♥';e.style.left=Math.random()*100+'vw';e.style.fontSize=10+Math.random()*16+'px';e.style.animationDuration=7+Math.random()*6+'s';document.body.append(e);setTimeout(()=>e.remove(),14000)},1400)</script>
+<script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script></body></html>

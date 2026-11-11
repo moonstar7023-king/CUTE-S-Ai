@@ -1,0 +1,8 @@
+rules_version='2';service cloud.firestore{match /databases/{d}/documents{
+ match /notes/{id}{
+  allow read: if request.auth!=null && (request.auth.token.email_verified==true || request.auth.token.firebase.sign_in_provider=='phone');
+  allow create: if request.auth!=null && (request.auth.token.email_verified==true || request.auth.token.firebase.sign_in_provider=='phone') && request.resource.data.uid==request.auth.uid
+    && request.resource.data.title is string && request.resource.data.title.size()<=100
+    && request.resource.data.text.size()<=20000 && request.resource.data.keys().hasOnly(['title','uni','subject','text','fileUrl','fileName','uid','author','createdAt']);
+  allow delete: if request.auth!=null && resource.data.uid==request.auth.uid;
+  allow update: if false;}}}
