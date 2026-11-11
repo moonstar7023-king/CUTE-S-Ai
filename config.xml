@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.cutes.studyai" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>Cute-S AI</name>
+    <description>Free AI study buddy: notes, maths, coding, English and exam prep.</description>
+    <author email="moonstar7023@gmail.com">iTz×͜Shahmir</author>
+    <content src="index.html" />
+    <access origin="*" />
+    <allow-navigation href="*" />
+    <allow-intent href="https://*/*" />
+    <preference name="Orientation" value="portrait" />
+    <preference name="BackgroundColor" value="0xff1b1226" />
+    <platform name="android">
+        <icon src="logo.png" />
+        <preference name="android-minSdkVersion" value="24" />
+        <preference name="android-targetSdkVersion" value="34" />
+        <preference name="AndroidWindowSplashScreenBackground" value="#1b1226" />
+        <preference name="AndroidWindowSplashScreenAnimatedIcon" value="logo.png" />
+    </platform>
+</widget>
