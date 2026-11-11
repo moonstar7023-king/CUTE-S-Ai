@@ -15,7 +15,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
       - run: mkdir -p www && cp index.html logo.png www/
       - run: npm install -g cordova@12
       - run: cordova platform add android@13.0.0
