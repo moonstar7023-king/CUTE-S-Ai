@@ -2,13 +2,30 @@ const $=i=>document.getElementById(i);let user;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 auth.onAuthStateChanged(u=>{if(!u||!(u.emailVerified||u.phoneNumber))return location.href='index.html';user=u;$('who').textContent=u.email||u.phoneNumber;restore();load()});
 $('out').onclick=()=>auth.signOut();
-function go(v){document.querySelectorAll('nav button,.view').forEach(x=>x.classList.remove('on'));document.querySelector('nav [data-v='+v+']').classList.add('on');$(v).classList.add('on')}
+function go(v){document.querySelectorAll('nav button,.view').forEach(x=>x.classList.remove('on'));document.querySelector('nav [data-v='+v+']').classList.add('on');$(v).classList.add('on');document.body.dataset.v=v}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
-const SYS={role:'system',content:'You are CUTE-S AI, a friendly, accurate free study assistant for students. Help only with studies: explain concepts step by step, solve problems, make notes, quizzes and summaries. Use simple markdown (bold, lists, code blocks). Reply in the language the student uses (Urdu, Roman Urdu or English). Politely decline non-study requests.'};
+const SYS={role:'system',content:'You are CUTE-S AI, a friendly, accurate free study assistant for students. Help only with studies: explain concepts step by step, solve problems, make notes, quizzes and summaries. Use simple markdown (bold, lists, code blocks). Reply in the language the student uses (Urdu, Roman Urdu or English). Politely decline non-study requests. Greet back in the same style the student used: Assalam-o-Alaikum gets Walaikum Assalam, Namashty or Namaste gets Namashty, Hello gets Hello. Never say just Salam.'};
 const SG=['Explain OOP concepts with simple examples','Make short exam notes on Pointers in C++','Quiz me with 5 MCQs on Software Engineering','Summarize this topic in Roman Urdu: Database normalization'];
+
+const SAY={idle:['Main yahin hoon 💗'],listen:['Main sun raha hoon 👂','Boliye, boliye 🐰'],think:['Hmm... soch raha hoon 🤔','Ek second, dhoond raha hoon 💭'],happy:['Yay, jawab ready! 🎉','Dekha? Maine kar diya 😄'],love:['Aapka shukriya! 💗','Aww, aap bohot achhe ho 🥰'],sad:['Oops, kuch gadbad ho gayi 🥺','Sorry, dobara try karein 💔'],hug:['Main hoon na 🤗','Fikar na karein, sab theek hoga 💗'],cheer:['All the best! 💪✨','Aap zaroor top karoge! ⭐'],wave:['Assalam-o-Alaikum! 👋💗','Namashty! 🙏💗','Hello! 👋🐰'],sleep:['Zzz... 😴','Nind aa rahi hai 💤'],talk:['Batata hoon... 💬']};
+const PP={happy:['✨','🎉','⭐'],cheer:['💪','✨','⭐'],love:['💗','💖','💕'],sad:['💧'],hug:['💗','🤗'],think:['💭'],sleep:['💤'],wave:['💗']};
+const GIF={idle:'idle',listen:'listen',think:'think',talk:'talk',happy:'happy',love:'love',hug:'love',sad:'sad',sleep:'sleep',wave:'wave',cheer:'cheer'};
+let petT,idleT,sayT;
+function pet(st,ms,txt){const p=$('pet');if(!p)return;p.className=st;const im=$('pimg'),g='pet-'+(GIF[st]||'idle')+'.gif';if(im&&!im.src.endsWith(g))im.src=g;clearTimeout(petT);if(ms)petT=setTimeout(()=>pet('idle'),ms);
+ const a=SAY[st]||SAY.idle;if(st!=='idle'||txt){const s=$('say');s.textContent=txt||a[Math.floor(Math.random()*a.length)];s.classList.add('on');clearTimeout(sayT);sayT=setTimeout(()=>s.classList.remove('on'),ms||2500)}
+ (PP[st]||[]).forEach((e,i)=>{for(let k=0;k<2;k++){const x=document.createElement('span');x.className='pp';x.textContent=e;x.style.setProperty('--x',(Math.random()*70-35)+'px');x.style.animationDelay=(i*.15+k*.25)+'s';p.append(x);setTimeout(()=>x.remove(),2200)}});
+ clearTimeout(idleT);idleT=setTimeout(()=>pet('sleep'),45000)}
+function mood(q,r){const t=q.toLowerCase();
+ if(/thank|shukriya|thanks|jazak/.test(t))return pet('love',3500);
+ if(/assalam|assalaam|aslam|salam|salaam/.test(t))return pet('wave',3500,'Walaikum Assalam! 💗');
+ if(/namast|namash|namaskar/.test(t))return pet('wave',3500,'Namashty! 🙏💗');
+ if(/^(hi|hello|hey|hii)/.test(t))return pet('wave',3500,'Hello! 👋🐰');
+ if(/udas|sad|tension|stress|dar lag|depress|rona/.test(t))return pet('hug',4500);
+ if(/exam|test|paper|quiz|mcq|viva/.test(t))return pet('cheer',3500);
+ pet('happy',3000)}
 let hist=[],busy=false;const M=$('msgs');
 function md(t){let h=esc(t);h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>'<pre><code>'+c+'</code></pre>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');return h.replace(/\n/g,'<br>').replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g,(m)=>m.replace(/<br>/g,'\n'))}
-function welcome(){M.innerHTML='<div class="wel"><img src="logo.png" alt=""><h2>Salam! Main CUTE-S AI hoon</h2><p>Aapka free study buddy. Kuch bhi poochhein 💗</p><div class="sg"></div></div>';
+function welcome(){M.innerHTML='<div class="wel"><img src="logo.png" alt=""><h2>Assalam-o-Alaikum! Main CUTE-S AI hoon</h2><p>Aapka free study buddy. Kuch bhi poochhein 💗</p><div class="sg"></div></div>';
  SG.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>{$('q').value=x;ask()};M.querySelector('.sg').append(b)})}
 function bub(role,text){const w=document.createElement('div');w.className='m '+(role==='user'?'u':'a');
  if(role!=='user'){const i=document.createElement('img');i.src='icon.png';i.className='av';w.append(i)}
@@ -25,15 +42,15 @@ async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$(
  if(typeof puter==='undefined'){busy=false;$('send').disabled=false;return alert('AI service load nahi hui (js.puter.com). Internet/VPN check karein aur page refresh karein.')}
  try{if(!puter.auth.isSignedIn())await puter.auth.signIn()}catch(e){busy=false;$('send').disabled=false;return alert('Puter login nahi hua. Popup allow karein aur dobara try karein.')}
  $('q').value='';$('q').style.height='auto';
- if(!hist.length)M.innerHTML='';bub('user',q);hist.push({role:'user',content:q});const b=bub('assistant','');let full='',err='';
+ if(!hist.length)M.innerHTML='';bub('user',q);hist.push({role:'user',content:q});const b=bub('assistant','');let full='',err='';pet('think');
  for(const mdl of ['claude-sonnet-4-5','claude-sonnet-4','gpt-4o-mini']){
   try{const r=await puter.ai.chat([SYS,...hist.slice(-20)],{model:mdl,stream:true});
-   for await(const p of r){full+=p?.text||'';b.innerHTML=md(full);M.scrollTop=M.scrollHeight}
+   for await(const p of r){if(!full&&p?.text)pet('talk');full+=p?.text||'';b.innerHTML=md(full);M.scrollTop=M.scrollHeight}
    if(full)break}catch(e){err=(e&&(e.message||e.error?.message||JSON.stringify(e)))||String(e);if(full)break}}
- if(full){hist.push({role:'assistant',content:full});acts(b,full);save()}
- else{b.textContent='AI error: '+String(err||'koi jawab nahi aaya').slice(0,200);hist.pop()}
+ if(full){mood(q,full);hist.push({role:'assistant',content:full});acts(b,full);save()}
+ else{pet('sad',4000);b.textContent='AI error: '+String(err||'koi jawab nahi aaya').slice(0,200);hist.pop()}
  busy=false;$('send').disabled=false}
-$('send').onclick=ask;$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
+$('send').onclick=ask;$('q').addEventListener('input',()=>pet('listen',1800));$('pet').onclick=()=>pet('happy',2500,['Hehe, gudgudi 🥰','Mujhe pyaar chahiye 💗','Aap ne mujhe chhua! 🐰'][Math.floor(Math.random()*3)]);setTimeout(()=>pet('wave',3000),1200);$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
 $('q').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&innerWidth>700){e.preventDefault();ask()}};
 $('nc').onclick=()=>{if(busy)return;hist=[];save();welcome();go('chat')};
 async function load(){const L=$('list');L.textContent='Loading...';
