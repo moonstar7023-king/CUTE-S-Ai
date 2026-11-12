@@ -12,8 +12,13 @@
 <section id="me" class="view pf"><h3 id="who"></h3><p><a href="privacy.html">Privacy Policy & Terms</a></p><p>Contact: moonstar7023@gmail.com</p><p>Developer: iTz×͜Shahmir</p><p>💗 CUTE-S AI is free for all studies.</p><button class="pb" id="out">Logout</button></section>
 </main>
 <nav><button class="on" data-v="chat"><span>🤖</span>AI</button><button data-v="lib"><span>📚</span>Notes</button><button data-v="up"><span>⬆️</span>Upload</button><button data-v="me"><span>👤</span>Me</button></nav>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-storage-compat.js"></script>
-<script src="https://js.puter.com/v2/"></script><script src="firebase-config.js"></script><script src="app.js"></script><script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script></body></html>
+<script src="https://js.puter.com/v2/"></script><script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script><script>
+function ld(a){return new Promise(function(ok,no){var i=0;(function n(){if(i>=a.length)return no();var s=document.createElement("script");s.src=a[i++];s.onload=ok;s.onerror=n;document.head.appendChild(s)})()})}
+function say0(t){var d=document.getElementById("msg");if(d)d.textContent=t}
+(async function(){try{
+ var G="https://www.gstatic.com/firebasejs/10.12.2/firebase-",J="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-";
+ for(var f of ["app","auth","firestore"])await ld([G+f+"-compat.js",J+f+"-compat.js"]);
+ try{await ld([G+"storage-compat.js",J+"storage-compat.js"])}catch(e){}
+ await ld(["firebase-config.js?v=3"]);await ld(["app.js?v=3"]);
+}catch(e){say0("Firebase load nahi hua. Internet / VPN / Private DNS check karein.")}})();
+</script></body></html>

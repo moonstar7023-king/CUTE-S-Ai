@@ -44,10 +44,14 @@ label.f{display:block;font-size:12px;color:var(--rose);margin:0 0 7px}.w{display
 <p class="msg" id="msg" role="alert"></p><button class="btn" id="go">Login</button>
 <p class="sw"><span id="swt">New here?</span> <button class="lk" id="sw" type="button">Create account</button></p><div id="rc"></div></div>
 <p class="foot">🔒 Secure login · <a href="privacy.html">Privacy</a> · Made by iTz×͜Shahmir</p></div>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebase10.12.2/firebase-storage-compat.js"></script>
-<script src="firebase-config.js?v=2"></script><script src="auth.js?v=2"></script>
-<script>setInterval(()=>{const e=document.createElement('div');e.className='h';e.textContent='♥';e.style.left=Math.random()*100+'vw';e.style.fontSize=10+Math.random()*16+'px';e.style.animationDuration=7+Math.random()*6+'s';document.body.append(e);setTimeout(()=>e.remove(),14000)},1400)</script>
+<script>
+function ld(a){return new Promise(function(ok,no){var i=0;(function n(){if(i>=a.length)return no();var s=document.createElement("script");s.src=a[i++];s.onload=ok;s.onerror=n;document.head.appendChild(s)})()})}
+function say0(t){var d=document.getElementById("msg");if(d)d.textContent=t}
+(async function(){try{
+ var G="https://www.gstatic.com/firebasejs/10.12.2/firebase-",J="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-";
+ for(var f of ["app","auth","firestore"])await ld([G+f+"-compat.js",J+f+"-compat.js"]);
+ try{await ld([G+"storage-compat.js",J+"storage-compat.js"])}catch(e){}
+ await ld(["firebase-config.js?v=3"]);await ld(["auth.js?v=3"]);
+}catch(e){say0("Firebase load nahi hua. Internet / VPN / Private DNS check karein.")}})();
+</script><script>setInterval(()=>{const e=document.createElement('div');e.className='h';e.textContent='♥';e.style.left=Math.random()*100+'vw';e.style.fontSize=10+Math.random()*16+'px';e.style.animationDuration=7+Math.random()*6+'s';document.body.append(e);setTimeout(()=>e.remove(),14000)},1400)</script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script></body></html>
