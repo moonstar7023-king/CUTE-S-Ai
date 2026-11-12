@@ -6,4 +6,7 @@ firebase.initializeApp({
   messagingSenderId: "359897423825",
   appId: "1:359897423825:web:b1e75f2f4895802e524af0"
 });
-const auth = firebase.auth(), db = firebase.firestore(), store = firebase.storage();
+const auth = firebase.auth();
+const db = firebase.firestore();
+let store = null;
+try { store = firebase.storage(); } catch (e) { console.warn('Storage off'); }
