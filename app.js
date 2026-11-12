@@ -21,12 +21,17 @@ function acts(b,text){const a=document.createElement('div');a.className='act';
 function save(){try{localStorage.setItem('cs_'+user.uid,JSON.stringify(hist.slice(-30)))}catch(e){}}
 function restore(){try{hist=JSON.parse(localStorage.getItem('cs_'+user.uid)||'[]')}catch(e){hist=[]}
  if(!hist.length)return welcome();M.innerHTML='';hist.forEach(h=>{const b=bub(h.role,h.content);if(h.role!=='user')acts(b,h.content)})}
-async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$('send').disabled=true;$('q').value='';$('q').style.height='auto';
- if(!hist.length)M.innerHTML='';bub('user',q);hist.push({role:'user',content:q});const b=bub('assistant','');let full='';
- try{const r=await puter.ai.chat([SYS,...hist.slice(-20)],{model:'claude-sonnet-4-5',stream:true});
-  for await(const p of r){full+=p?.text||'';b.innerHTML=md(full);M.scrollTop=M.scrollHeight}
-  if(!full)throw 0;hist.push({role:'assistant',content:full});acts(b,full);save()}
- catch(e){b.textContent='Kuch masla aa gaya. Internet check karein aur Puter login popup allow karke dobara try karein.';hist.pop()}
+async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$('send').disabled=true;
+ if(typeof puter==='undefined'){busy=false;$('send').disabled=false;return alert('AI service load nahi hui (js.puter.com). Internet/VPN check karein aur page refresh karein.')}
+ try{if(!puter.auth.isSignedIn())await puter.auth.signIn()}catch(e){busy=false;$('send').disabled=false;return alert('Puter login nahi hua. Popup allow karein aur dobara try karein.')}
+ $('q').value='';$('q').style.height='auto';
+ if(!hist.length)M.innerHTML='';bub('user',q);hist.push({role:'user',content:q});const b=bub('assistant','');let full='',err='';
+ for(const mdl of ['claude-sonnet-4-5','claude-sonnet-4','gpt-4o-mini']){
+  try{const r=await puter.ai.chat([SYS,...hist.slice(-20)],{model:mdl,stream:true});
+   for await(const p of r){full+=p?.text||'';b.innerHTML=md(full);M.scrollTop=M.scrollHeight}
+   if(full)break}catch(e){err=(e&&(e.message||e.error?.message||JSON.stringify(e)))||String(e);if(full)break}}
+ if(full){hist.push({role:'assistant',content:full});acts(b,full);save()}
+ else{b.textContent='AI error: '+String(err||'koi jawab nahi aaya').slice(0,200);hist.pop()}
  busy=false;$('send').disabled=false}
 $('send').onclick=ask;$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
 $('q').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&innerWidth>700){e.preventDefault();ask()}};
