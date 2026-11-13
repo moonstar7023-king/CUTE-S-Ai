@@ -25,7 +25,7 @@ function mood(q,r){const t=q.toLowerCase();
  pet('happy',3000)}
 let hist=[],busy=false,cid=null,cproj='',projects=[],chats=[],profile={},deep=false,attach=null,inited=false,fproj='';
 const M=$('msgs'),UD=()=>db.collection('users').doc(user.uid),TS=()=>firebase.firestore.FieldValue.serverTimestamp();
-const VL={en:'en-US',ur:'ur-PK'};
+const VL={en:'en-US',ur:'ur-PK',hi:'hi-IN',ar:'ar-SA',pa:'pa-IN',fa:'fa-IR',bn:'bn-BD',tr:'tr-TR',es:'es-ES',fr:'fr-FR',de:'de-DE',ru:'ru-RU',zh:'zh-CN',ja:'ja-JP',ko:'ko-KR',id:'id-ID'};
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.append(d);setTimeout(()=>d.remove(),2200)}
 function openModal(){$('mo').hidden=false}
 function closeModal(){$('mo').hidden=true;$('mc').innerHTML=''}
@@ -82,12 +82,13 @@ function sysMsg(){let c=SYS.content;const p=profile;
  const pr=projects.find(x=>x.id===cproj);
  if(pr)c+='\nCurrent project: "'+pr.name+'". Student notes about it: '+(pr.ctx||'none')+'. Keep answers relevant to this project.';
  if(deep)c+='\nDeep mode is ON: reason step by step, double-check calculations and facts, then give a clear final answer.';
- if(SET.lang!=='auto')c+='\nAlways reply in '+({en:'English',ur:'Urdu',rur:'Roman Urdu'})[SET.lang]+'.';
+ if(SET.lang!=='auto')c+='\nAlways reply in '+LN[SET.lang]+', whatever language the student writes in.';else c+='\nYou understand every language in the world. Reply in the language the student writes in.';
  c+='\nWhen a chart helps, add a fenced block named chart with JSON like {"type":"bar","title":"T","labels":["A","B"],"values":[1,2]} (type bar, line or pie). For diagrams use a mermaid block. For a small web page or app give one complete html block. For spreadsheet data, calculate carefully and show your working.';
  return {role:'system',content:c+extra}}
 
 /* ---------- send a message ---------- */
 async function ask(){const q=$('q').value.trim();if((!q&&!attach)||busy)return;
+ if(!attach&&isImg(q)){$('q').value='';$('q').style.height='auto';return chatImage(q)}
  let content=q,shown=q;
  if(attach){content=(q||'Summarize this file for me.')+'\n\n[Attached file: '+attach.name+']\n'+attach.text;shown=(q||'Summarize this file')+'\n📎 '+attach.name;clearAttach()}
  $('q').value='';$('q').style.height='auto';await run(content,shown)}
@@ -376,7 +377,7 @@ function connectors(){const c=$('mc');c.innerHTML='<h3>🔌 Connectors</h3><p cl
 async function wipe(col){try{const s=await UD().collection(col).limit(200).get();for(const d of s.docs){if(col==='chats')await d.ref.collection('msgs').doc('main').delete();await d.ref.delete()}if(col==='chats')newChat();toast('Deleted')}catch(e){toast('Could not delete.')}}
 function settings(){const c=$('mc');c.innerHTML='<h3>⚙️ Settings</h3><div id="m_s"></div>';const L=$('m_s');
  mi(L,'🔤 Text size: '+({s:'Small',m:'Medium',l:'Large'})[SET.fs],()=>{SET.fs={s:'m',m:'l',l:'s'}[SET.fs];saveSet();applySet();settings()});
- mi(L,'🌐 Reply language: '+({auto:'Auto',en:'English',ur:'Urdu',rur:'Roman Urdu'})[SET.lang],()=>{SET.lang={auto:'en',en:'ur',ur:'rur',rur:'auto'}[SET.lang];saveSet();settings()});
+ mi(L,'🌐 Reply language: '+langName(SET.lang),langMenu);
  mi(L,'🧠 Deep mode: '+(deep?'on':'off'),()=>{$('dp').click();settings()});
  mi(L,'🗑 Delete all my chats',async()=>{if(confirm('Delete ALL chats? This cannot be undone.')){await wipe('chats');closeModal()}},'ac');
  mi(L,'🗑 Delete my saved library',async()=>{if(confirm('Delete everything in your library?')){await wipe('saved');closeModal()}},'ac');openModal()}
@@ -390,14 +391,23 @@ const XLS='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)}
 async function sheetText(f){await loadScript(XLS);const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
  return wb.SheetNames.slice(0,3).map(n=>'Sheet: '+n+'\n'+XLSX.utils.sheet_to_csv(wb.Sheets[n]).split('\n').slice(0,200).join('\n')).join('\n\n')}
-async function genImage(p){const c=$('mc');
- c.innerHTML='<div class="ldw" style="padding:20px 0"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';openModal();
- if(!await puterReady()){closeModal();return}
- try{const im=await puter.ai.txt2img(p),src=im.src||'';
-  c.innerHTML='<h3>🎨 Your image</h3><img id="m_im" style="width:100%;border-radius:12px" alt=""><div class="act"><button id="m_d">⬇️ Download</button></div>';
-  $('m_im').src=src;$('m_d').onclick=async()=>{try{dl(await(await fetch(src)).blob(),'cute-s-ai.png')}catch(e){window.open(src,'_blank')}}}
- catch(e){c.innerHTML='<p class="err">Could not create the image. Please try a different description.</p>'}}
-$('im').onclick=()=>{const t=$('q').value.trim()||(prompt('Describe the image you want')||'').trim();if(t){$('q').value='';genImage(t.slice(0,500))}};
+const IMG_A=/^(please |plz |ek |mujhe |mujh ko |can you |could you )*(generate|create|make|draw|design|paint|render|sketch)( me| for me)?( an?| the)? .{0,40}?\b(image|picture|photo|logo|poster|wallpaper|sticker|illustration|portrait|painting|drawing|cartoon|anime)\b/i,
+ IMG_B=/\b(image|picture|photo|tasveer|tasvir|logo|poster|wallpaper|sticker|cartoon)\b.{0,60}\b(bana|banao|bnao|banaye|banaiye|banado|dikhao)\b/i,
+ IMG_C=/(تصویر|فوٹو|لوگو|پوسٹر).{0,40}(بنا)/;
+const isImg=q=>q.length<400&&(IMG_A.test(q)||IMG_B.test(q)||IMG_C.test(q)||/^(draw|sketch)\b/i.test(q));
+async function chatImage(q){busy=true;$('send').disabled=true;
+ if(!await puterReady()){busy=false;$('send').disabled=false;return}
+ if(!hist.length)M.innerHTML='';
+ bub('user',q,q);hist.push({role:'user',content:q,shown:q});const b=bub('assistant','');pet('think');
+ try{let p=q;const r=await aiCall([{role:'user',content:'Turn this request into one detailed English prompt for an image generator. Reply with ONLY the prompt.\nRequest: '+q}]);
+  if(r.full&&r.full.length<900)p=r.full.trim();
+  const im=await puter.ai.txt2img(p),src=im.src||'';
+  b.innerHTML='';const e=document.createElement('img');e.src=src;e.alt='';e.style.cssText='width:100%;border-radius:12px;display:block';b.append(e);
+  const a=document.createElement('div');a.className='act';const d=document.createElement('button');d.textContent='⬇️ Download';
+  d.onclick=async()=>{try{dl(await(await fetch(src)).blob(),'cute-s-ai.png')}catch(x){window.open(src,'_blank')}};a.append(d);b.append(a);
+  hist.push({role:'assistant',content:'🎨 Image created: '+q});pet('happy',3000);M.scrollTop=M.scrollHeight;saveChat()}
+ catch(e){b.textContent='Could not create the image. Please try a different description.';hist.pop();pet('sad',3000)}
+ busy=false;$('send').disabled=false}
 function toPdf(text){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(f);const d=f.contentWindow.document;
  d.open();d.write('<html><head><meta charset="utf-8"><title>CUTE-S-AI</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:24px;color:#000}pre{background:#eee;padding:8px;white-space:pre-wrap}</style></head><body>'+md(text)+'</body></html>');d.close();
  setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},400)}
@@ -419,3 +429,11 @@ function exportMenu(text){const c=$('mc');c.innerHTML='<h3>⬇️ Download</h3><
  mi(L,'📊 Excel (.xlsx)',go2(()=>toXlsx(text,n)));
  mi(L,'📽 PowerPoint (.pptx)',go2(()=>toPptx(text,n)));
  mi(L,'📃 Text (.txt)',go2(()=>dl(new Blob([text],{type:'text/plain'}),n+'.txt')));openModal()}
+
+
+/* ---------- languages ---------- */
+const LANGS=[['auto','Auto (same as I write)'],['en','English'],['ur','اردو Urdu'],['rur','Roman Urdu'],['hi','हिन्दी Hindi'],['ar','العربية Arabic'],['pa','ਪੰਜਾਬੀ Punjabi'],['sd','سنڌي Sindhi'],['ps','پښتو Pashto'],['fa','فارسی Persian'],['bn','বাংলা Bengali'],['tr','Türkçe Turkish'],['es','Español Spanish'],['fr','Français French'],['de','Deutsch German'],['ru','Русский Russian'],['zh','中文 Chinese'],['ja','日本語 Japanese'],['ko','한국어 Korean'],['id','Bahasa Indonesia']];
+const LN={en:'English',ur:'Urdu',rur:'Roman Urdu (Urdu written in English letters)',hi:'Hindi',ar:'Arabic',pa:'Punjabi',sd:'Sindhi',ps:'Pashto',fa:'Persian',bn:'Bengali',tr:'Turkish',es:'Spanish',fr:'French',de:'German',ru:'Russian',zh:'Chinese',ja:'Japanese',ko:'Korean',id:'Indonesian'};
+const langName=c=>(LANGS.find(x=>x[0]===c)||LANGS[0])[1];
+function langMenu(){const c=$('mc');c.innerHTML='<h3>🌐 Reply language</h3><div id="m_l" style="max-height:60vh;overflow-y:auto"></div>';const L=$('m_l');
+ LANGS.forEach(([k,n])=>mi(L,(SET.lang===k?'✅ ':'')+n,()=>{SET.lang=k;saveSet();toast(n);settings()},SET.lang===k?'on':''));openModal()}
