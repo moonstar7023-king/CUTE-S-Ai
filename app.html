@@ -5,7 +5,7 @@
 <main>
 <section id="chat" class="view on"><div id="msgs"></div>
 <div class="bar"><textarea id="q" rows="1" placeholder="Ask anything about your studies..."></textarea><button class="send" id="send" aria-label="Send">➤</button></div></section>
-<section id="lib" class="view"><h3>Notes Library</h3><input id="s" placeholder="🔍 Search title, subject, university"><div class="row"><input id="fu" placeholder="University"><input id="fs" placeholder="Subject"></div><button class="pb" id="ld">Search</button><div id="list"></div></section>
+<section id="lib" class="view"><h3>Notes Library</h3><input id="s" placeholder="🔍 Search title, subject, university"><div class="row"><input id="fu" list="ul" placeholder="University"><input id="fs" list="sl" placeholder="Subject"></div><button class="pb" id="ld">Search</button><div id="list"></div><button class="pb" id="more" hidden>Aur dikhayein</button><datalist id="ul"></datalist><datalist id="sl"></datalist></section>
 <section id="up" class="view"><h3>Share your notes</h3><input id="t" maxlength="100" placeholder="Title"><div class="row"><input id="u" maxlength="60" placeholder="University"><input id="sb" maxlength="60" placeholder="Subject"></div>
 <textarea class="f" id="tx" rows="7" maxlength="20000" placeholder="Notes text (optional if you attach a file)"></textarea><input id="f" type="file" accept="application/pdf,image/*">
 <label class="ck"><input type="checkbox" id="ok"><span>These are my own notes, or I have the right to share them. No copyrighted books.</span></label><p class="err" id="ue"></p><button class="pb" id="pub">Publish (free)</button></section>
@@ -19,6 +19,6 @@ function say0(t){var d=document.getElementById("msg");if(d)d.textContent=t}
  var G="https://www.gstatic.com/firebasejs/10.12.2/firebase-",J="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-";
  for(var f of ["app","auth","firestore"])await ld([G+f+"-compat.js",J+f+"-compat.js"]);
  try{await ld([G+"storage-compat.js",J+"storage-compat.js"])}catch(e){}
- await ld(["firebase-config.js?v=3"]);await ld(["app.js?v=11"]);
+ await ld(["firebase-config.js?v=3"]);await ld(["app.js?v=12"]);
 }catch(e){say0("Firebase load nahi hua. Internet / VPN / Private DNS check karein.")}})();
 </script></body></html>

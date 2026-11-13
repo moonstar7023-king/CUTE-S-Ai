@@ -53,19 +53,49 @@ async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$(
 $('send').onclick=ask;$('q').addEventListener('input',()=>pet('listen',1800));$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
 $('q').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&innerWidth>700){e.preventDefault();ask()}};
 $('nc').onclick=()=>{if(busy)return;hist=[];save();welcome();go('chat')};
-async function load(){const L=$('list');L.textContent='Loading...';
- try{let r=db.collection('notes').orderBy('createdAt','desc').limit(100);
-  const u=$('fu').value.trim().toLowerCase(),sb=$('fs').value.trim().toLowerCase(),k=$('s').value.trim().toLowerCase();
-  const snap=await r.get();L.innerHTML='';let n=0;
-  snap.forEach(d=>{const x=d.data(),h=(x.title+x.subject+x.uni).toLowerCase();
-   if((u&&!x.uni.toLowerCase().includes(u))||(sb&&!x.subject.toLowerCase().includes(sb))||(k&&!h.includes(k)))return;n++;
-   const e=document.createElement('div');e.className='note';
-   e.innerHTML=`<b>${esc(x.title)}</b><small>${esc(x.uni)} • ${esc(x.subject)} • by ${esc(x.author)}</small><p style="white-space:pre-wrap;margin:8px 0">${esc((x.text||'').slice(0,400))}</p>`;
-   if(x.fileUrl&&/^https:\/\/firebasestorage\.googleapis\.com\//.test(x.fileUrl)){const a=document.createElement('a');a.href=x.fileUrl;a.target='_blank';a.rel='noopener';a.textContent='📎 '+(x.fileName||'File');e.append(a)}
-   const rp=document.createElement('a');rp.href='mailto:moonstar7023@gmail.com?subject=Report note '+d.id;rp.textContent='  ⚠️ Report';rp.style.fontSize='.8rem';e.append(rp);
-   if(x.uid===user.uid){const del=document.createElement('button');del.textContent='Delete';del.style.cssText='float:right;padding:6px 10px';del.onclick=async()=>{if(confirm('Delete?')){await db.collection('notes').doc(d.id).delete();load()}};e.append(del)}
-   L.append(e)});if(!n)L.textContent='Koi notes nahi mile.'}catch(e){L.textContent='Load error'}}
-$('ld').onclick=load;
+const PAGE=20,MAXSCAN=300,HIDE_AT=3;let lastDoc=null,more=true,busyL=false;const seenU=new Set(),seenS=new Set();
+function fillDL(id,set){const d=$(id);d.innerHTML='';[...set].sort().slice(0,60).forEach(v=>{const o=document.createElement('option');o.value=v;d.append(o)})}
+function noteEl(d,x){const e=document.createElement('div');e.className='note';
+ e.innerHTML=`<b>${esc(x.title)}</b><small>${esc(x.uni)} • ${esc(x.subject)} • by ${esc(x.author)}</small><p style="white-space:pre-wrap;margin:8px 0">${esc((x.text||'').slice(0,400))}</p>`;
+ if(x.fileUrl&&/^https:\/\/firebasestorage\.googleapis\.com\//.test(x.fileUrl)){const a=document.createElement('a');a.href=x.fileUrl;a.target='_blank';a.rel='noopener';a.textContent='📎 '+(x.fileName||'File');e.append(a)}
+ if(x.uid===user.uid){
+  if((x.reportCount||0)>=HIDE_AT){const w=document.createElement('small');w.textContent=' ⚠️ Reports ki wajah se doosron ko nahi dikh raha';e.append(w)}
+  const del=document.createElement('button');del.textContent='Delete';del.style.cssText='float:right;padding:6px 10px';
+  del.onclick=async()=>{if(confirm('Delete?')){await db.collection('notes').doc(d.id).delete();load()}};e.append(del)
+ }else{
+  const rp=document.createElement('button');rp.textContent='⚠️ Report';rp.style.cssText='margin-left:8px;padding:4px 8px;font-size:.8rem;background:none;border:1px solid #555;color:inherit;border-radius:8px';
+  rp.onclick=async()=>{if(!confirm('Is note ko report karein? (galat ya copyrighted content)'))return;rp.disabled=true;
+   try{const b=db.batch();
+    b.set(db.collection('reports').doc(d.id+'_'+user.uid),{noteId:d.id,uid:user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    b.update(db.collection('notes').doc(d.id),{reportCount:firebase.firestore.FieldValue.increment(1)});
+    await b.commit();rp.textContent='✅ Report ho gayi'}
+   catch(err){rp.textContent='Pehle hi report kar chuke hain'}};
+  e.append(rp)
+ }
+ return e}
+async function load(reset=true){if(busyL)return;busyL=true;const L=$('list'),B=$('more');B.hidden=true;
+ try{
+  if(reset){L.textContent='Loading...';lastDoc=null;more=true;seenU.clear();seenS.clear()}
+  const u=$('fu').value.trim().toLowerCase(),sb=$('fs').value.trim().toLowerCase(),k=$('s').value.trim().toLowerCase(),active=!!(u||sb||k);
+  let shown=0,scanned=0;if(reset)L.innerHTML='';
+  while(more&&shown<PAGE&&scanned<MAXSCAN){
+   let q=db.collection('notes').orderBy('createdAt','desc').limit(PAGE);if(lastDoc)q=q.startAfter(lastDoc);
+   const snap=await q.get();if(snap.empty){more=false;break}
+   lastDoc=snap.docs[snap.docs.length-1];scanned+=snap.size;if(snap.size<PAGE)more=false;
+   snap.forEach(d=>{const x=d.data(),U=String(x.uni||''),S=String(x.subject||'');
+    if(U)seenU.add(U);if(S)seenS.add(S);
+    if((x.reportCount||0)>=HIDE_AT&&x.uid!==user.uid)return;
+    const h=(String(x.title||'')+' '+S+' '+U).toLowerCase();
+    if((u&&!U.toLowerCase().includes(u))||(sb&&!S.toLowerCase().includes(sb))||(k&&!h.includes(k)))return;
+    L.append(noteEl(d,x));shown++});
+   if(!active)break}
+  fillDL('ul',seenU);fillDL('sl',seenS);
+  if(reset&&!L.children.length)L.textContent=more?'Abhi koi match nahi mila. "Aur dikhayein" dabayein.':'Koi notes nahi mile.';
+  B.hidden=!more
+ }catch(e){if(reset)L.textContent='Load error. Dobara try karein.'}
+ busyL=false}
+$('ld').onclick=()=>load(true);$('more').onclick=()=>load(false);
+['s','fu','fs'].forEach(i=>$(i).addEventListener('keydown',e=>{if(e.key==='Enter')load(true)}));
 $('pub').onclick=async()=>{const E=$('ue'),t=$('t').value.trim(),un=$('u').value.trim(),sb=$('sb').value.trim(),tx=$('tx').value.trim(),f=$('f').files[0];E.textContent='';
  if(!t||!un||!sb||(!tx&&!f))return E.textContent='Title, university, subject aur notes/file zaroori hain';
  if(!$('ok').checked)return E.textContent='Confirmation tick karein';

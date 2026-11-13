@@ -1,8 +1,49 @@
-rules_version='2';service cloud.firestore{match /databases/{d}/documents{
- match /notes/{id}{
-  allow read: if request.auth!=null && (request.auth.token.email_verified==true || request.auth.token.firebase.sign_in_provider=='phone');
-  allow create: if request.auth!=null && (request.auth.token.email_verified==true || request.auth.token.firebase.sign_in_provider=='phone') && request.resource.data.uid==request.auth.uid
-    && request.resource.data.title is string && request.resource.data.title.size()<=100
-    && request.resource.data.text.size()<=20000 && request.resource.data.keys().hasOnly(['title','uni','subject','text','fileUrl','fileName','uid','author','createdAt']);
-  allow delete: if request.auth!=null && resource.data.uid==request.auth.uid;
-  allow update: if false;}}}
+rules_version='2';
+service cloud.firestore{
+ match /databases/{d}/documents{
+
+  function ok(){
+   return request.auth!=null && (request.auth.token.email_verified==true || request.auth.token.firebase.sign_in_provider=='phone');
+  }
+  function str(v,mn,mx){ return v is string && v.size()>=mn && v.size()<=mx; }
+
+  match /notes/{id}{
+   allow read: if ok();
+
+   allow create: if ok()
+    && request.resource.data.uid==request.auth.uid
+    && request.resource.data.keys().hasOnly(['title','uni','subject','text','fileUrl','fileName','uid','author','createdAt'])
+    && request.resource.data.keys().hasAll(['title','uni','subject','text','fileUrl','fileName','uid','author','createdAt'])
+    && str(request.resource.data.title,1,100)
+    && str(request.resource.data.uni,1,60)
+    && str(request.resource.data.subject,1,60)
+    && str(request.resource.data.author,1,60)
+    && str(request.resource.data.text,0,20000)
+    && str(request.resource.data.fileName,0,150)
+    && str(request.resource.data.fileUrl,0,800)
+    && (request.resource.data.fileUrl=='' || request.resource.data.fileUrl.matches('https://firebasestorage\\.googleapis\\.com/.*'))
+    && (request.resource.data.text.size()>0 || request.resource.data.fileUrl!='')
+    && request.resource.data.createdAt==request.time;
+
+   allow delete: if request.auth!=null && resource.data.uid==request.auth.uid;
+
+   // Only allowed update: another user adds exactly +1 to reportCount, once per user (with a report doc written in the same batch)
+   allow update: if ok()
+    && resource.data.uid!=request.auth.uid
+    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportCount'])
+    && request.resource.data.reportCount==resource.data.get('reportCount',0)+1
+    && !exists(/databases/$(d)/documents/reports/$(id+'_'+request.auth.uid))
+    && existsAfter(/databases/$(d)/documents/reports/$(id+'_'+request.auth.uid));
+  }
+
+  match /reports/{rid}{
+   allow create: if ok()
+    && request.resource.data.keys().hasOnly(['noteId','uid','createdAt'])
+    && request.resource.data.uid==request.auth.uid
+    && request.resource.data.noteId is string
+    && rid==request.resource.data.noteId+'_'+request.auth.uid
+    && request.resource.data.createdAt==request.time;
+   allow read, update, delete: if false;
+  }
+ }
+}
