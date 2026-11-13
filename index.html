@@ -31,8 +31,8 @@ label.f{display:block;font-size:12px;color:var(--rose);margin:0 0 7px}.w{display
 </style><script>window.onerror=function(m,s,l){var d=document.getElementById("msg");if(d){d.textContent="Error: "+m+" ("+String(s||"").split("/").pop()+":"+l+")"}};</script></head><body>
 <div class="page">
 <div class="hero"><img src="logo.png" alt="CUTE-S AI logo"></div>
-<div class="brand">CUTE-S <b>AI</b></div><div class="tag">Your free study buddy</div>
-<div class="chips"><span>🤖 AI Tutor</span><span>📚 Shared Notes</span><span>💗 100% Free</span></div>
+<div class="brand">CUTE-S <b>AI</b></div><div class="tag">Your study buddy, always here</div>
+<div class="chips"><span>🤖 AI Tutor</span><span>📚 Shared Notes</span><span>💗 Made for Students</span></div>
 <div class="card"><h2 id="h">Welcome back</h2><p class="sub" id="s">Login to continue your studies</p>
 <div class="tabs" id="tabs" data-m="email"><div class="pill"></div><button class="tab on" data-m="email">✉️ Email</button><button class="tab" data-m="mobile">📱 Mobile</button></div>
 <div id="pe"><label class="f">Email</label><div class="w"><input id="em" type="email" placeholder="you@example.com" autocomplete="email"></div>
@@ -51,7 +51,7 @@ function say0(t){var d=document.getElementById("msg");if(d)d.textContent=t}
  var G="https://www.gstatic.com/firebasejs/10.12.2/firebase-",J="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-";
  for(var f of ["app","auth","firestore"])await ld([G+f+"-compat.js",J+f+"-compat.js"]);
  try{await ld([G+"storage-compat.js",J+"storage-compat.js"])}catch(e){}
- await ld(["firebase-config.js?v=3"]);await ld(["auth.js?v=3"]);
-}catch(e){say0("Firebase load nahi hua. Internet / VPN / Private DNS check karein.")}})();
+ await ld(["firebase-config.js?v=3"]);await ld(["auth.js?v=4"]);
+}catch(e){say0("Could not load the app. Check your internet, VPN or Private DNS, then refresh.")}})();
 </script><script>setInterval(()=>{const e=document.createElement('div');e.className='h';e.textContent='♥';e.style.left=Math.random()*100+'vw';e.style.fontSize=10+Math.random()*16+'px';e.style.animationDuration=7+Math.random()*6+'s';document.body.append(e);setTimeout(()=>e.remove(),14000)},1400)</script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"))</script></body></html>

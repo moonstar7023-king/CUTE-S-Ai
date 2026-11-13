@@ -25,11 +25,11 @@ function mood(q,r){const t=q.toLowerCase();
  pet('happy',3000)}
 let hist=[],busy=false;const M=$('msgs');
 function md(t){let h=esc(t);h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>'<pre><code>'+c+'</code></pre>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');return h.replace(/\n/g,'<br>').replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g,(m)=>m.replace(/<br>/g,'\n'))}
-function welcome(){M.innerHTML='<div class="wel"><img src="logo.png?v=2" alt=""><h2>Assalam-o-Alaikum! Main CUTE-S-AI hoon</h2><p>Aapka free study buddy. Kuch bhi poochhein 💗</p><div class="sg"></div></div>';
+function welcome(){M.innerHTML='<div class="wel"><img src="logo.png?v=2" alt=""><h2>Assalam-o-Alaikum! I am CUTE-S-AI</h2><p>Stuck on a topic? Ask me anything and let us learn together 💗</p><div class="sg"></div></div>';
  SG.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>{$('q').value=x;ask()};M.querySelector('.sg').append(b)})}
 function bub(role,text){const w=document.createElement('div');w.className='m '+(role==='user'?'u':'a');
  if(role!=='user'){const i=document.createElement('img');i.src='icon.png';i.className='av';w.append(i)}
- const b=document.createElement('div');b.className='b';if(role==='user')b.textContent=text;else b.innerHTML=text?md(text):'<div class="ldw"><img class="ld" src="loading.gif" alt=""><span>Soch raha hoon...</span></div>';
+ const b=document.createElement('div');b.className='b';if(role==='user')b.textContent=text;else b.innerHTML=text?md(text):'<div class="ldw"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';
  w.append(b);M.append(w);M.scrollTop=M.scrollHeight;return b}
 function acts(b,text){const a=document.createElement('div');a.className='act';
  const c=document.createElement('button');c.textContent='📋 Copy';c.onclick=()=>{navigator.clipboard?.writeText(text);c.textContent='✅ Copied'};
@@ -39,8 +39,8 @@ function save(){try{localStorage.setItem('cs_'+user.uid,JSON.stringify(hist.slic
 function restore(){try{hist=JSON.parse(localStorage.getItem('cs_'+user.uid)||'[]')}catch(e){hist=[]}
  if(!hist.length)return welcome();M.innerHTML='';hist.forEach(h=>{const b=bub(h.role,h.content);if(h.role!=='user')acts(b,h.content)})}
 async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$('send').disabled=true;
- if(typeof puter==='undefined'){busy=false;$('send').disabled=false;return alert('AI service load nahi hui (js.puter.com). Internet/VPN check karein aur page refresh karein.')}
- try{if(!puter.auth.isSignedIn())await puter.auth.signIn()}catch(e){busy=false;$('send').disabled=false;return alert('Puter login nahi hua. Popup allow karein aur dobara try karein.')}
+ if(typeof puter==='undefined'){busy=false;$('send').disabled=false;return alert('The AI could not load. Check your internet or VPN, then refresh the page.')}
+ try{if(!puter.auth.isSignedIn())await puter.auth.signIn()}catch(e){busy=false;$('send').disabled=false;return alert('Please sign in to Puter to use the AI. Allow popups and try again.')}
  $('q').value='';$('q').style.height='auto';
  if(!hist.length)M.innerHTML='';bub('user',q);hist.push({role:'user',content:q});const b=bub('assistant','');let full='',err='';pet('think');
  for(const mdl of ['claude-sonnet-4-5','claude-sonnet-4','gpt-4o-mini']){
@@ -48,7 +48,7 @@ async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$(
    for await(const p of r){if(!full&&p?.text)pet('talk');full+=p?.text||'';b.innerHTML=md(full);M.scrollTop=M.scrollHeight}
    if(full)break}catch(e){err=(e&&(e.message||e.error?.message||JSON.stringify(e)))||String(e);if(full)break}}
  if(full){mood(q,full);hist.push({role:'assistant',content:full});acts(b,full);save()}
- else{pet('sad',4000);b.textContent='AI error: '+String(err||'koi jawab nahi aaya').slice(0,200);hist.pop()}
+ else{pet('sad',4000);b.textContent='Something went wrong. Please try again. ('+String(err||'no response').slice(0,150)+')';hist.pop()}
  busy=false;$('send').disabled=false}
 $('send').onclick=ask;$('q').addEventListener('input',()=>pet('listen',1800));$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
 $('q').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&innerWidth>700){e.preventDefault();ask()}};
@@ -59,23 +59,23 @@ function noteEl(d,x){const e=document.createElement('div');e.className='note';
  e.innerHTML=`<b>${esc(x.title)}</b><small>${esc(x.uni)} • ${esc(x.subject)} • by ${esc(x.author)}</small><p style="white-space:pre-wrap;margin:8px 0">${esc((x.text||'').slice(0,400))}</p>`;
  if(x.fileUrl&&/^https:\/\/firebasestorage\.googleapis\.com\//.test(x.fileUrl)){const a=document.createElement('a');a.href=x.fileUrl;a.target='_blank';a.rel='noopener';a.textContent='📎 '+(x.fileName||'File');e.append(a)}
  if(x.uid===user.uid){
-  if((x.reportCount||0)>=HIDE_AT){const w=document.createElement('small');w.textContent=' ⚠️ Reports ki wajah se doosron ko nahi dikh raha';e.append(w)}
+  if((x.reportCount||0)>=HIDE_AT){const w=document.createElement('small');w.textContent=' ⚠️ Hidden from others after reports';e.append(w)}
   const del=document.createElement('button');del.textContent='Delete';del.style.cssText='float:right;padding:6px 10px';
-  del.onclick=async()=>{if(confirm('Delete?')){await db.collection('notes').doc(d.id).delete();load()}};e.append(del)
+  del.onclick=async()=>{if(confirm('Delete this note?')){await db.collection('notes').doc(d.id).delete();load()}};e.append(del)
  }else{
   const rp=document.createElement('button');rp.textContent='⚠️ Report';rp.style.cssText='margin-left:8px;padding:4px 8px;font-size:.8rem;background:none;border:1px solid #555;color:inherit;border-radius:8px';
-  rp.onclick=async()=>{if(!confirm('Is note ko report karein? (galat ya copyrighted content)'))return;rp.disabled=true;
+  rp.onclick=async()=>{if(!confirm('Report this note for wrong or copyrighted content?'))return;rp.disabled=true;
    try{const b=db.batch();
     b.set(db.collection('reports').doc(d.id+'_'+user.uid),{noteId:d.id,uid:user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
     b.update(db.collection('notes').doc(d.id),{reportCount:firebase.firestore.FieldValue.increment(1)});
-    await b.commit();rp.textContent='✅ Report ho gayi'}
-   catch(err){rp.textContent='Pehle hi report kar chuke hain'}};
+    await b.commit();rp.textContent='✅ Reported, thank you'}
+   catch(err){rp.textContent='Already reported'}};
   e.append(rp)
  }
  return e}
 async function load(reset=true){if(busyL)return;busyL=true;const L=$('list'),B=$('more');B.hidden=true;
  try{
-  if(reset){L.textContent='Loading...';lastDoc=null;more=true;seenU.clear();seenS.clear()}
+  if(reset){L.textContent='Loading notes...';lastDoc=null;more=true;seenU.clear();seenS.clear()}
   const u=$('fu').value.trim().toLowerCase(),sb=$('fs').value.trim().toLowerCase(),k=$('s').value.trim().toLowerCase(),active=!!(u||sb||k);
   let shown=0,scanned=0;if(reset)L.innerHTML='';
   while(more&&shown<PAGE&&scanned<MAXSCAN){
@@ -90,17 +90,17 @@ async function load(reset=true){if(busyL)return;busyL=true;const L=$('list'),B=$
     L.append(noteEl(d,x));shown++});
    if(!active)break}
   fillDL('ul',seenU);fillDL('sl',seenS);
-  if(reset&&!L.children.length)L.textContent=more?'Abhi koi match nahi mila. "Aur dikhayein" dabayein.':'Koi notes nahi mile.';
+  if(reset&&!L.children.length)L.textContent=more?'No match yet. Tap "Show more" to keep searching.':'No notes found yet. Be the first to share one 💗';
   B.hidden=!more
- }catch(e){if(reset)L.textContent='Load error. Dobara try karein.'}
+ }catch(e){if(reset)L.textContent='Could not load notes. Please try again.'}
  busyL=false}
 $('ld').onclick=()=>load(true);$('more').onclick=()=>load(false);
 ['s','fu','fs'].forEach(i=>$(i).addEventListener('keydown',e=>{if(e.key==='Enter')load(true)}));
 $('pub').onclick=async()=>{const E=$('ue'),t=$('t').value.trim(),un=$('u').value.trim(),sb=$('sb').value.trim(),tx=$('tx').value.trim(),f=$('f').files[0];E.textContent='';
- if(!t||!un||!sb||(!tx&&!f))return E.textContent='Title, university, subject aur notes/file zaroori hain';
- if(!$('ok').checked)return E.textContent='Confirmation tick karein';
- if(f&&(f.size>10*1024*1024||!/^(application\/pdf|image\/)/.test(f.type)))return E.textContent='Sirf PDF/image, max 10MB';
+ if(!t||!un||!sb||(!tx&&!f))return E.textContent='Please add a title, university, subject, and your notes or a file.';
+ if(!$('ok').checked)return E.textContent='Please tick the box to confirm.';
+ if(f&&(f.size>10*1024*1024||!/^(application\/pdf|image\/)/.test(f.type)))return E.textContent='Only PDF or image files up to 10 MB.';
  $('pub').disabled=true;try{let fileUrl='',fileName='';
   if(f){const ref=store.ref(`notes/${user.uid}/${Date.now()}_${f.name.replace(/[^\w.-]/g,'_')}`);await ref.put(f);fileUrl=await ref.getDownloadURL();fileName=f.name}
   await db.collection('notes').add({title:t,uni:un,subject:sb,text:tx,fileUrl,fileName,uid:user.uid,author:(user.email||'student').split('@')[0],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-  E.textContent='✅ Publish ho gaya!';['t','u','sb','tx','f'].forEach(i=>$(i).value='');load()}catch(e){E.textContent='Upload fail ho gaya'}$('pub').disabled=false};
+  E.textContent='✅ Published! Thank you for sharing 💗';['t','u','sb','tx','f'].forEach(i=>$(i).value='');load()}catch(e){E.textContent='Upload failed. Please try again.'}$('pub').disabled=false};

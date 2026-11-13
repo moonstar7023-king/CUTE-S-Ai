@@ -1,7 +1,7 @@
 const $=i=>document.getElementById(i);let mode='email',signup=false,conf=null,rv=null;
 const say=(t,ok)=>{$('msg').textContent=t;$('msg').className='msg'+(ok?' ok':'')};
 auth.onAuthStateChanged(u=>{if(u&&(u.emailVerified||u.phoneNumber))location.href='app.html'});
-function ui(){$('h').textContent=signup?'Create account':'Welcome back';$('s').textContent=signup?'Join CUTE-S AI, it is free':'Login to continue your studies';
+function ui(){$('h').textContent=signup?'Create account':'Welcome back';$('s').textContent=signup?'Join CUTE-S AI and learn together':'Login to continue your studies';
  $('go').textContent=mode==='mobile'?($('ob').hidden?'Send code':'Verify & continue'):(signup?'Sign up':'Login');
  $('tw').hidden=!signup&&mode==='email';if(mode==='mobile')$('tw').hidden=false;$('fgr').hidden=signup;$('swt').textContent=signup?'Already have an account?':'New here?';$('sw').textContent=signup?'Login':'Create account';
  $('pe').hidden=mode!=='email';$('pm').hidden=mode!=='mobile';$('tabs').dataset.m=mode;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.m===mode));say('')}
