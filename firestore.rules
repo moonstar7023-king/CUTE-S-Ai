@@ -45,5 +45,10 @@ service cloud.firestore{
     && request.resource.data.createdAt==request.time;
    allow read, update, delete: if false;
   }
+
+  // Private data of each student (chats, projects, saved items, profile)
+  match /users/{uid}/{document=**}{
+   allow read, write: if ok() && request.auth.uid==uid;
+  }
  }
 }

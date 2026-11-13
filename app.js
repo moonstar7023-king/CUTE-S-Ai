@@ -1,6 +1,6 @@
 const $=i=>document.getElementById(i);let user;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-auth.onAuthStateChanged(u=>{if(!u||!(u.emailVerified||u.phoneNumber))return location.href='index.html';user=u;$('who').textContent=u.email||u.phoneNumber;restore();load()});
+auth.onAuthStateChanged(u=>{if(!u||!(u.emailVerified||u.phoneNumber))return location.href='index.html';user=u;$('who').textContent=u.email||u.phoneNumber;init();load()});
 $('out').onclick=()=>auth.signOut();
 function go(v){document.querySelectorAll('nav button,.view').forEach(x=>x.classList.remove('on'));document.querySelector('nav [data-v='+v+']').classList.add('on');$(v).classList.add('on');document.body.dataset.v=v}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
@@ -23,36 +23,249 @@ function mood(q,r){const t=q.toLowerCase();
  if(/udas|sad|tension|stress|dar lag|depress|rona/.test(t))return pet('hug',4500);
  if(/exam|test|paper|quiz|mcq|viva/.test(t))return pet('cheer',3500);
  pet('happy',3000)}
-let hist=[],busy=false;const M=$('msgs');
-function md(t){let h=esc(t);h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>'<pre><code>'+c+'</code></pre>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');return h.replace(/\n/g,'<br>').replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g,(m)=>m.replace(/<br>/g,'\n'))}
+let hist=[],busy=false,cid=null,cproj='',projects=[],chats=[],profile={},deep=false,attach=null,inited=false,fproj='';
+const M=$('msgs'),UD=()=>db.collection('users').doc(user.uid),TS=()=>firebase.firestore.FieldValue.serverTimestamp();
+const VL={en:'en-US',ur:'ur-PK'};
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.append(d);setTimeout(()=>d.remove(),2200)}
+function openModal(){$('mo').hidden=false}
+function closeModal(){$('mo').hidden=true;$('mc').innerHTML=''}
+$('mx').onclick=closeModal;$('mo').addEventListener('click',e=>{if(e.target===$('mo'))closeModal()});
+
+/* ---------- markdown (escaped first, then a small safe subset) ---------- */
+function md(t){let h=esc(t);const blocks=[];
+ h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>{blocks.push('<pre><code>'+c+'</code></pre>');return '\u0000'+(blocks.length-1)+'\u0000'});
+ const inl=s=>s.replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
+ const out=[];let list=null;const close=()=>{if(list){out.push('</'+list+'>');list=null}};
+ h.split('\n').forEach(line=>{let m;
+  if((m=line.match(/^\s*[-*•]\s+(.*)/))){if(list!=='ul'){close();out.push('<ul>');list='ul'}out.push('<li>'+inl(m[1])+'</li>')}
+  else if((m=line.match(/^\s*\d+[.)]\s+(.*)/))){if(list!=='ol'){close();out.push('<ol>');list='ol'}out.push('<li>'+inl(m[1])+'</li>')}
+  else if((m=line.match(/^\s*#{1,4}\s+(.*)/))){close();out.push('<h4>'+inl(m[1])+'</h4>')}
+  else if(/^\u0000\d+\u0000$/.test(line.trim())){close();out.push(line.trim())}
+  else if(!line.trim()){close()}
+  else{close();out.push('<p>'+inl(line)+'</p>')}});
+ close();return out.join('').replace(/\u0000(\d+)\u0000/g,(_,i)=>blocks[i])}
+
+/* ---------- chat bubbles ---------- */
 function welcome(){M.innerHTML='<div class="wel"><img src="logo.png?v=2" alt=""><h2>Assalam-o-Alaikum! I am CUTE-S-AI</h2><p>Stuck on a topic? Ask me anything and let us learn together 💗</p><div class="sg"></div></div>';
  SG.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>{$('q').value=x;ask()};M.querySelector('.sg').append(b)})}
-function bub(role,text){const w=document.createElement('div');w.className='m '+(role==='user'?'u':'a');
+function bub(role,text,shown){const w=document.createElement('div');w.className='m '+(role==='user'?'u':'a');
  if(role!=='user'){const i=document.createElement('img');i.src='icon.png';i.className='av';w.append(i)}
- const b=document.createElement('div');b.className='b';if(role==='user')b.textContent=text;else b.innerHTML=text?md(text):'<div class="ldw"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';
+ const b=document.createElement('div');b.className='b';if(role==='user')b.textContent=shown||text;else b.innerHTML=text?md(text):'<div class="ldw"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';
  w.append(b);M.append(w);M.scrollTop=M.scrollHeight;return b}
+const lastQ=()=>{const u=hist.filter(h=>h.role==='user').pop();return ((u&&(u.shown||u.content))||'Notes').split('\n')[0].slice(0,100)};
+const titleOf=t=>String(t).replace(/[#*`_>-]/g,'').trim().split('\n')[0].slice(0,60)||'Untitled';
 function acts(b,text){const a=document.createElement('div');a.className='act';
- const c=document.createElement('button');c.textContent='📋 Copy';c.onclick=()=>{navigator.clipboard?.writeText(text);c.textContent='✅ Copied'};
- const s=document.createElement('button');s.textContent='💾 Save as note';s.onclick=()=>{$('t').value=(hist.filter(h=>h.role==='user').pop()?.content||'Notes').slice(0,100);$('tx').value=text.slice(0,20000);go('up')};
- a.append(c,s);b.append(a)}
-function save(){try{localStorage.setItem('cs_'+user.uid,JSON.stringify(hist.slice(-30)))}catch(e){}}
-function restore(){try{hist=JSON.parse(localStorage.getItem('cs_'+user.uid)||'[]')}catch(e){hist=[]}
- if(!hist.length)return welcome();M.innerHTML='';hist.forEach(h=>{const b=bub(h.role,h.content);if(h.role!=='user')acts(b,h.content)})}
-async function ask(){const q=$('q').value.trim();if(!q||busy)return;busy=true;$('send').disabled=true;
- if(typeof puter==='undefined'){busy=false;$('send').disabled=false;return alert('The AI could not load. Check your internet or VPN, then refresh the page.')}
- try{if(!puter.auth.isSignedIn())await puter.auth.signIn()}catch(e){busy=false;$('send').disabled=false;return alert('Please sign in to Puter to use the AI. Allow popups and try again.')}
- $('q').value='';$('q').style.height='auto';
- if(!hist.length)M.innerHTML='';bub('user',q);hist.push({role:'user',content:q});const b=bub('assistant','');let full='',err='';pet('think');
+ const mk=(t,fn)=>{const x=document.createElement('button');x.textContent=t;x.onclick=()=>fn(x);a.append(x)};
+ mk('📋 Copy',x=>{navigator.clipboard?.writeText(text);x.textContent='✅ Copied'});
+ mk('🔊 Listen',x=>speak(text,x));
+ mk('📝 Notes',()=>gen('summary',text));mk('❓ Quiz',()=>gen('quiz',text));mk('🃏 Cards',()=>gen('cards',text));
+ mk('📚 Save',x=>saveLib({type:'note',title:titleOf(text),content:text},x));
+ mk('📤 Share',()=>{$('t').value=lastQ();$('tx').value=text.slice(0,20000);go('up')});
+ b.append(a)}
+
+/* ---------- AI helpers (Puter.js) ---------- */
+async function puterReady(){
+ if(typeof puter==='undefined'){alert('The AI could not load. Check your internet or VPN, then refresh the page.');return false}
+ try{if(!puter.auth.isSignedIn())await puter.auth.signIn()}catch(e){alert('Please sign in to Puter to use the AI. Allow popups and try again.');return false}
+ return true}
+async function aiCall(msgs,onTxt){let full='',err='';
  for(const mdl of ['claude-sonnet-4-5','claude-sonnet-4','gpt-4o-mini']){
-  try{const r=await puter.ai.chat([SYS,...hist.slice(-20)],{model:mdl,stream:true});
-   for await(const p of r){if(!full&&p?.text)pet('talk');full+=p?.text||'';b.innerHTML=md(full);M.scrollTop=M.scrollHeight}
+  try{const r=await puter.ai.chat(msgs,{model:mdl,stream:true});
+   for await(const p of r){full+=p?.text||'';if(onTxt)onTxt(full)}
    if(full)break}catch(e){err=(e&&(e.message||e.error?.message||JSON.stringify(e)))||String(e);if(full)break}}
- if(full){mood(q,full);hist.push({role:'assistant',content:full});acts(b,full);save()}
+ return {full,err}}
+function sysMsg(){let c=SYS.content;const p=profile;
+ const pf=[p.cls&&'level/class: '+p.cls,p.subj&&'subjects: '+p.subj,p.goal&&'goals: '+p.goal].filter(Boolean);
+ if(pf.length)c+='\nStudent profile: '+pf.join('; ')+'. Adapt difficulty and examples to it.';
+ const pr=projects.find(x=>x.id===cproj);
+ if(pr)c+='\nCurrent project: "'+pr.name+'". Student notes about it: '+(pr.ctx||'none')+'. Keep answers relevant to this project.';
+ if(deep)c+='\nDeep mode is ON: reason step by step, double-check calculations and facts, then give a clear final answer.';
+ return {role:'system',content:c}}
+
+/* ---------- send a message ---------- */
+async function ask(){const q=$('q').value.trim();if((!q&&!attach)||busy)return;
+ let content=q,shown=q;
+ if(attach){content=(q||'Summarize this file for me.')+'\n\n[Attached file: '+attach.name+']\n'+attach.text;shown=(q||'Summarize this file')+'\n📎 '+attach.name;clearAttach()}
+ $('q').value='';$('q').style.height='auto';await run(content,shown)}
+async function run(content,shown){busy=true;$('send').disabled=true;
+ if(!await puterReady()){busy=false;$('send').disabled=false;return}
+ if(!hist.length)M.innerHTML='';
+ bub('user',content,shown);hist.push({role:'user',content,shown:shown||''});
+ const b=bub('assistant','');pet('think');let started=false;
+ const send=hist.slice(-20).map((h,i,a)=>({role:h.role,content:i<a.length-2?h.content.slice(0,4000):h.content}));
+ const {full,err}=await aiCall([sysMsg(),...send],t=>{if(!started){started=true;pet('talk')}b.innerHTML=md(t);M.scrollTop=M.scrollHeight});
+ if(full){mood(shown||content,full);hist.push({role:'assistant',content:full});acts(b,full);saveChat()}
  else{pet('sad',4000);b.textContent='Something went wrong. Please try again. ('+String(err||'no response').slice(0,150)+')';hist.pop()}
  busy=false;$('send').disabled=false}
-$('send').onclick=ask;$('q').addEventListener('input',()=>pet('listen',1800));$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
+$('send').onclick=ask;$('q').addEventListener('input',()=>pet('listen',1800));
+$('q').oninput=e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'};
 $('q').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&innerWidth>700){e.preventDefault();ask()}};
-$('nc').onclick=()=>{if(busy)return;hist=[];save();welcome();go('chat')};
+
+/* ---------- chat history (private, per user) ---------- */
+async function saveChat(){if(!hist.length)return;
+ if(!cid)cid=UD().collection('chats').doc().id;
+ const msgs=hist.slice(-40).map((h,i,a)=>({role:h.role,content:h.content.slice(0,i<a.length-4?3000:14000),shown:(h.shown||'').slice(0,500)}));
+ const first=hist.find(h=>h.role==='user');const title=((first&&(first.shown||first.content))||'Chat').split('\n')[0].slice(0,60);
+ try{const ref=UD().collection('chats').doc(cid),b=db.batch();
+  b.set(ref,{title,project:cproj,updatedAt:TS()});b.set(ref.collection('msgs').doc('main'),{messages:msgs});await b.commit()}catch(e){toast('Could not save this chat.')}}
+async function loadChats(){try{const s=await UD().collection('chats').orderBy('updatedAt','desc').limit(60).get();chats=s.docs.map(d=>({id:d.id,...d.data()}))}catch(e){chats=[]}}
+function newChat(){if(busy)return;hist=[];cid=null;clearAttach();welcome();chip();go('chat')}
+$('nc').onclick=newChat;
+async function openChat(id){if(busy)return;M.innerHTML='<div class="ldw" style="padding:14px"><span>Please wait...</span></div>';go('chat');
+ try{const d=await UD().collection('chats').doc(id).collection('msgs').doc('main').get();const meta=chats.find(c=>c.id===id)||{};
+  hist=((d.data()||{}).messages||[]).map(m=>({role:m.role,content:m.content,shown:m.shown||''}));cid=id;cproj=meta.project||'';chip();
+  M.innerHTML='';if(!hist.length)return welcome();
+  hist.forEach(h=>{const b=bub(h.role,h.content,h.shown);if(h.role!=='user')acts(b,h.content)})}
+ catch(e){M.textContent='Could not open this chat.'}}
+async function delChat(id){try{const ref=UD().collection('chats').doc(id),b=db.batch();b.delete(ref.collection('msgs').doc('main'));b.delete(ref);await b.commit()}catch(e){toast('Could not delete.');return}
+ chats=chats.filter(c=>c.id!==id);if(id===cid)newChat()}
+function closeDrawer(){$('dr').hidden=true}
+async function openDrawer(){$('dr').hidden=false;$('dl').textContent='Please wait...';await loadChats();renderDrawer()}
+function renderDrawer(){const J=$('dj');J.innerHTML='';
+ const chipB=(t,v)=>{const b=document.createElement('button');b.className='chip'+(fproj===v?' on':'');b.textContent=t;b.onclick=()=>{fproj=v;renderDrawer()};J.append(b)};
+ chipB('All','');projects.forEach(p=>chipB('📁 '+p.name,p.id));
+ const L=$('dl');L.innerHTML='';const list=chats.filter(c=>!fproj||c.project===fproj);
+ if(!list.length){L.textContent='No chats here yet. Start one 💗';return}
+ list.forEach(c=>{const r=document.createElement('div');r.className='ci'+(c.id===cid?' on':'');
+  const pn=(projects.find(p=>p.id===c.project)||{}).name;const dt=c.updatedAt&&c.updatedAt.toDate?c.updatedAt.toDate().toLocaleDateString():'';
+  r.innerHTML='<div><b>'+esc(c.title)+'</b><small>'+(pn?'📁 '+esc(pn)+' · ':'')+esc(dt)+'</small></div>';
+  r.firstChild.onclick=()=>{closeDrawer();openChat(c.id)};
+  const d=document.createElement('button');d.className='d';d.textContent='🗑';d.onclick=async e=>{e.stopPropagation();if(!confirm('Delete this chat?'))return;await delChat(c.id);renderDrawer()};
+  r.append(d);L.append(r)})}
+$('hb').onclick=openDrawer;$('dx').onclick=closeDrawer;$('dbg').onclick=closeDrawer;
+
+/* ---------- projects ---------- */
+async function loadProjects(){try{const s=await UD().collection('projects').orderBy('createdAt').get();projects=s.docs.map(d=>({id:d.id,...d.data()}))}catch(e){projects=[]}}
+function chip(){const p=projects.find(x=>x.id===cproj);$('pj').textContent='📁 '+(p?p.name:'No project')}
+function setProj(id){cproj=id;chip();if(hist.length)saveChat()}
+async function newProj(){const n=(prompt('Project name (for example: Software Engineering)')||'').trim().slice(0,40);if(!n)return;
+ const ctx=(prompt('What should I know about it? (exam date, topics, teacher style). Optional.')||'').trim().slice(0,400);
+ try{const r=await UD().collection('projects').add({name:n,ctx,createdAt:TS()});projects.push({id:r.id,name:n,ctx});setProj(r.id);closeModal();toast('Project created 📁')}catch(e){toast('Could not create the project.')}}
+async function editProj(){const p=projects.find(x=>x.id===cproj);if(!p)return;
+ const n=(prompt('Project name',p.name)||'').trim().slice(0,40);if(!n)return;const ctx=(prompt('Notes about this project',p.ctx||'')||'').trim().slice(0,400);
+ try{await UD().collection('projects').doc(p.id).update({name:n,ctx});p.name=n;p.ctx=ctx;chip();closeModal();toast('Project updated')}catch(e){toast('Could not update.')}}
+async function delProj(){const p=projects.find(x=>x.id===cproj);if(!p||!confirm('Delete project "'+p.name+'"? Its chats are kept.'))return;
+ try{await UD().collection('projects').doc(p.id).delete();projects=projects.filter(x=>x.id!==p.id);setProj('');closeModal()}catch(e){toast('Could not delete.')}}
+$('pj').onclick=()=>{const c=$('mc');c.innerHTML='<h3>📁 Projects</h3><div id="m_pl"></div>';const L=$('m_pl');
+ const add=(t,fn,cls)=>{const b=document.createElement('button');b.className='mi '+(cls||'');b.textContent=t;b.onclick=fn;L.append(b)};
+ add('No project',()=>{setProj('');closeModal()},!cproj?'on':'');
+ projects.forEach(p=>add('📁 '+p.name,()=>{setProj(p.id);closeModal()},cproj===p.id?'on':''));
+ add('＋ New project',newProj,'ac');if(cproj){add('✏️ Edit this project',editProj,'ac');add('🗑 Delete this project',delProj,'ac')}openModal()};
+
+/* ---------- deep mode ---------- */
+function chipDeep(){$('dp').textContent='🧠 Deep: '+(deep?'on':'off');$('dp').classList.toggle('on',deep)}
+$('dp').onclick=()=>{deep=!deep;try{localStorage.setItem('cs_deep',deep?'1':'0')}catch(e){}chipDeep();toast(deep?'Deep mode on: step-by-step answers':'Deep mode off')};
+
+/* ---------- attach a file (PDF / image / text) ---------- */
+function showAttach(name,st){const A=$('ap');A.hidden=false;A.innerHTML='';
+ const s=document.createElement('span');s.textContent='📎 '+name.slice(0,26)+' · '+st;A.append(s);
+ if(attach)[['📝 Notes','summary'],['❓ Quiz','quiz'],['🃏 Cards','cards']].forEach(([t,k])=>{const b=document.createElement('button');b.className='chip';b.textContent=t;b.onclick=()=>gen(k,attach.text);A.append(b)});
+ const x=document.createElement('button');x.className='chip';x.textContent='✕';x.onclick=clearAttach;A.append(x)}
+function clearAttach(){attach=null;$('ap').hidden=true;$('ap').innerHTML=''}
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Could not load the PDF reader. Check your internet.'));document.head.append(s)})}
+async function pdfText(f){
+ if(!window.pdfjsLib){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}
+ const doc=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;let t='';
+ for(let i=1;i<=Math.min(doc.numPages,40)&&t.length<14000;i++){const pg=await doc.getPage(i);const c=await pg.getTextContent();t+=c.items.map(x=>x.str).join(' ')+'\n'}
+ return t}
+async function imgText(f){if(!await puterReady())throw new Error('Please sign in to Puter to read images.');
+ if(!puter.ai||!puter.ai.img2txt)throw new Error('Reading images is not available right now.');
+ const r=await puter.ai.img2txt(f);return typeof r==='string'?r:(r&&r.text)||''}
+$('at').onclick=()=>$('af').click();
+$('af').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ if(f.size>10*1024*1024)return alert('This file is too large. Maximum is 10 MB.');
+ attach=null;showAttach(f.name,'reading...');
+ try{let text='';
+  if(f.type==='application/pdf')text=await pdfText(f);
+  else if(f.type.startsWith('image/'))text=await imgText(f);
+  else if(f.type.startsWith('text/')||/\.(txt|md)$/i.test(f.name))text=await f.text();
+  else throw new Error('Please choose a PDF, an image or a text file.');
+  text=text.trim();if(!text)throw new Error('No readable text found in this file.');
+  attach={name:f.name,text:text.slice(0,12000)};showAttach(f.name,text.length>12000?'first part used':'ready')}
+ catch(x){clearAttach();alert(x.message||'Could not read this file.')}};
+
+/* ---------- voice in / out ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null;
+$('mic').onclick=()=>{if(!SR)return alert('Voice input is not supported in this browser. Try Chrome.');
+ if(rec){rec.stop();return}
+ rec=new SR();rec.lang=VL[profile.vlang]||'en-US';rec.interimResults=true;rec.continuous=false;const base=$('q').value;
+ rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('q').value=(base?base+' ':'')+t;$('q').dispatchEvent(new Event('input'))};
+ rec.onend=()=>{rec=null;$('mic').classList.remove('on')};rec.onerror=()=>{};
+ $('mic').classList.add('on');try{rec.start()}catch(e){rec=null;$('mic').classList.remove('on')}};
+function speak(text,btn){if(!window.speechSynthesis)return alert('Voice output is not supported here.');
+ if(speechSynthesis.speaking){speechSynthesis.cancel();if(btn)btn.textContent='🔊 Listen';return}
+ const clean=text.replace(/```[\s\S]*?```/g,' code block ').replace(/[*#`_>|-]/g,' ').replace(/\s+/g,' ').slice(0,3500);
+ const u=new SpeechSynthesisUtterance(clean);u.lang=VL[profile.vlang]||'en-US';u.onend=()=>{if(btn)btn.textContent='🔊 Listen'};
+ if(btn)btn.textContent='⏹ Stop';speechSynthesis.speak(u)}
+
+/* ---------- study tools: notes, quiz, flashcards ---------- */
+function parseJ(s,kind){const m=s.match(/\[[\s\S]*\]/);if(!m)return null;let a;try{a=JSON.parse(m[0])}catch(e){return null}
+ if(!Array.isArray(a))return null;
+ a=kind==='cards'?a.filter(x=>x&&typeof x.q==='string'&&typeof x.a==='string')
+  :a.filter(x=>x&&typeof x.q==='string'&&Array.isArray(x.o)&&x.o.length>=2&&Number.isInteger(x.a)&&x.a>=0&&x.a<x.o.length).map(x=>({q:x.q,o:x.o.map(String),a:x.a,why:String(x.why||'')}));
+ return a.length?a:null}
+const GP={summary:'Turn the material below into short, exam-ready study notes: key points as bullets, important terms in bold, and a 3-line recap at the end.',
+ cards:'Create 8 to 12 flashcards from the material below. Reply with ONLY a JSON array and no other text, like [{"q":"question","a":"short answer"}].',
+ quiz:'Create a 6-question multiple-choice quiz from the material below. Reply with ONLY a JSON array and no other text, like [{"q":"question","o":["option A","option B","option C","option D"],"a":0,"why":"one-line explanation"}], where a is the index of the correct option.'};
+async function gen(kind,text){
+ $('mc').innerHTML='<div class="ldw" style="padding:20px 0"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';openModal();
+ if(!await puterReady()){closeModal();return}
+ const {full}=await aiCall([{role:'system',content:'You are a precise study assistant. Follow the requested output format exactly. Write in the same language as the material.'},{role:'user',content:GP[kind]+'\n\nMaterial:\n'+text.slice(0,12000)}]);
+ if(!full){$('mc').innerHTML='<p class="err">Could not create it. Please try again.</p>';return}
+ const title=({summary:'Study notes',quiz:'Quiz',cards:'Flashcards'})[kind]+': '+titleOf(text);
+ if(kind==='summary')return showText(title,full,'summary',true);
+ const arr=parseJ(full,kind);
+ if(!arr){$('mc').innerHTML='<p class="err">The AI answered in the wrong format. Please tap again.</p>';return}
+ kind==='quiz'?showQuiz(arr,title,true):showCards(arr,title,true)}
+function showText(title,content,type,canSave){const c=$('mc');c.innerHTML='<h3></h3><div class="b" style="max-width:100%"></div><div class="act"></div>';
+ c.querySelector('h3').textContent=title;c.querySelector('.b').innerHTML=md(content);const a=c.querySelector('.act');
+ const cp=document.createElement('button');cp.textContent='📋 Copy';cp.onclick=()=>{navigator.clipboard?.writeText(content);cp.textContent='✅ Copied'};a.append(cp);
+ if(canSave){const s=document.createElement('button');s.textContent='📚 Save';s.onclick=()=>saveLib({type,title,content},s);a.append(s)}openModal()}
+function showCards(cards,title,canSave){const c=$('mc');let i=0,flip=false;
+ c.innerHTML='<h3>🃏 Flashcards</h3><p class="qw">Tap the card to flip it.</p><div class="fc" id="m_fc"></div><div class="fn"><button id="m_p">‹</button><span id="m_i"></span><button id="m_n">›</button></div>'+(canSave?'<button class="pb" id="m_s">📚 Save to library</button>':'');
+ const draw=()=>{$('m_fc').textContent=flip?cards[i].a:cards[i].q;$('m_fc').dataset.s=flip?'a':'q';$('m_i').textContent=(i+1)+' / '+cards.length};
+ $('m_fc').onclick=()=>{flip=!flip;draw()};$('m_p').onclick=()=>{i=(i+cards.length-1)%cards.length;flip=false;draw()};$('m_n').onclick=()=>{i=(i+1)%cards.length;flip=false;draw()};
+ if(canSave)$('m_s').onclick=e=>saveLib({type:'cards',title,content:JSON.stringify(cards)},e.target);draw();openModal()}
+function showQuiz(qs,title,canSave){const c=$('mc');let i=0,score=0;
+ const draw=()=>{
+  if(i>=qs.length){c.innerHTML='<h3>Quiz finished 🎉</h3><p class="sc">'+score+' / '+qs.length+'</p><button class="pb" id="m_a">Try again</button>'+(canSave?'<button class="pb" id="m_s">📚 Save to library</button>':'');
+   $('m_a').onclick=()=>{i=0;score=0;draw()};if(canSave)$('m_s').onclick=e=>saveLib({type:'quiz',title,content:JSON.stringify(qs)},e.target);return}
+  const q=qs[i];let done=false;
+  c.innerHTML='<h3>❓ Question '+(i+1)+' of '+qs.length+'</h3><p class="qq"></p><div class="qo"></div><p class="qw" hidden></p><button class="pb" id="m_x" hidden>Next</button>';
+  c.querySelector('.qq').textContent=q.q;const qo=c.querySelector('.qo');
+  q.o.forEach((o,k)=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>{if(done)return;done=true;
+   if(k===q.a){score++;b.classList.add('ok')}else{b.classList.add('no');qo.children[q.a].classList.add('ok')}
+   const w=c.querySelector('.qw');if(q.why){w.textContent=q.why;w.hidden=false}$('m_x').hidden=false;$('m_x').textContent=i===qs.length-1?'See score':'Next'};qo.append(b)});
+  $('m_x').onclick=()=>{i++;draw()}};
+ draw();openModal()}
+
+/* ---------- library (saved items) ---------- */
+async function saveLib(it,btn){try{await UD().collection('saved').add({type:it.type,title:String(it.title||'Untitled').slice(0,80),content:String(it.content).slice(0,30000),createdAt:TS()});if(btn&&btn.tagName)btn.textContent='✅ Saved';toast('Saved to your library 📚')}catch(e){toast('Could not save. Try again.')}}
+function openLib(x){try{if(x.type==='cards')return showCards(JSON.parse(x.content),x.title,false);if(x.type==='quiz')return showQuiz(JSON.parse(x.content),x.title,false)}catch(e){}showText(x.title,x.content,x.type,false)}
+async function loadLib(){const L=$('lbl');L.textContent='Please wait...';
+ try{const s=await UD().collection('saved').orderBy('createdAt','desc').limit(50).get();L.innerHTML='';
+  if(s.empty){L.textContent='Nothing saved yet. Tap 📚 Save under any answer.';return}
+  s.forEach(d=>{const x=d.data(),e=document.createElement('div');e.className='note';
+   const ic={note:'📝',summary:'📝',cards:'🃏',quiz:'❓'}[x.type]||'📝';e.innerHTML='<b>'+ic+' '+esc(x.title)+'</b>';
+   const r=document.createElement('div');r.className='act';
+   const o=document.createElement('button');o.textContent='Open';o.onclick=()=>openLib(x);
+   const del=document.createElement('button');del.textContent='Delete';del.onclick=async()=>{if(confirm('Delete this item?')){await UD().collection('saved').doc(d.id).delete();loadLib()}};
+   r.append(o,del);e.append(r);L.append(e)})}
+ catch(e){L.textContent='Could not load your library.'}}
+document.querySelector('nav [data-v=me]').addEventListener('click',loadLib);
+
+/* ---------- profile (memory) ---------- */
+function fillProfile(){$('pcl').value=profile.cls||'';$('psb').value=profile.subj||'';$('pgl').value=profile.goal||'';$('pvl').value=profile.vlang||'en'}
+$('psv').onclick=async()=>{profile={cls:$('pcl').value.trim().slice(0,100),subj:$('psb').value.trim().slice(0,150),goal:$('pgl').value.trim().slice(0,150),vlang:$('pvl').value};
+ try{await UD().set(profile,{merge:true});toast('Profile saved 💗')}catch(e){toast('Could not save. Try again.')}};
+
+/* ---------- start ---------- */
+async function init(){if(inited)return;inited=true;welcome();
+ try{const p=await UD().get();profile=p.exists?p.data():{}}catch(e){profile={}}
+ fillProfile();try{deep=localStorage.getItem('cs_deep')==='1'}catch(e){}chipDeep();
+ await loadProjects();chip();
+ try{const old=JSON.parse(localStorage.getItem('cs_'+user.uid)||'[]');
+  if(old.length){hist=old.map(h=>({role:h.role,content:h.content,shown:''}));await saveChat();localStorage.removeItem('cs_'+user.uid);hist=[];cid=null}}catch(e){}}
 const PAGE=20,MAXSCAN=300,HIDE_AT=3;let lastDoc=null,more=true,busyL=false;const seenU=new Set(),seenS=new Set();
 function fillDL(id,set){const d=$(id);d.innerHTML='';[...set].sort().slice(0,60).forEach(v=>{const o=document.createElement('option');o.value=v;d.append(o)})}
 function noteEl(d,x){const e=document.createElement('div');e.className='note';
