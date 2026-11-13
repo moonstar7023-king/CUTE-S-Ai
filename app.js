@@ -61,6 +61,7 @@ function acts(b,text){const a=document.createElement('div');a.className='act';
  mk('📝 Notes',()=>gen('summary',text));mk('❓ Quiz',()=>gen('quiz',text));mk('🃏 Cards',()=>gen('cards',text));
  mk('📚 Save',x=>saveLib({type:'note',title:titleOf(text),content:text},x));
  if(/```html/i.test(text))mk('▶ Preview',()=>preview(text));
+ mk('⬇️ Export',()=>exportMenu(text));
  mk('📤 Share',()=>{$('t').value=lastQ();$('tx').value=text.slice(0,20000);go('up')});
  b.append(a)}
 
@@ -82,7 +83,7 @@ function sysMsg(){let c=SYS.content;const p=profile;
  if(pr)c+='\nCurrent project: "'+pr.name+'". Student notes about it: '+(pr.ctx||'none')+'. Keep answers relevant to this project.';
  if(deep)c+='\nDeep mode is ON: reason step by step, double-check calculations and facts, then give a clear final answer.';
  if(SET.lang!=='auto')c+='\nAlways reply in '+({en:'English',ur:'Urdu',rur:'Roman Urdu'})[SET.lang]+'.';
- c+='\nWhen a chart helps, add a fenced block named chart with JSON like {"type":"bar","title":"T","labels":["A","B"],"values":[1,2]} (type bar, line or pie). For diagrams use a mermaid block. For a small web page or app give one complete html block.';
+ c+='\nWhen a chart helps, add a fenced block named chart with JSON like {"type":"bar","title":"T","labels":["A","B"],"values":[1,2]} (type bar, line or pie). For diagrams use a mermaid block. For a small web page or app give one complete html block. For spreadsheet data, calculate carefully and show your working.';
  return {role:'system',content:c+extra}}
 
 /* ---------- send a message ---------- */
@@ -184,9 +185,10 @@ $('af').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)ret
   if(f.type==='application/pdf')text=await pdfText(f);
   else if(f.type.startsWith('image/'))text=await imgText(f);
   else if(f.type.startsWith('text/')||/\.(txt|md)$/i.test(f.name))text=await f.text();
-  else throw new Error('Please choose a PDF, an image or a text file.');
+  else if(/\.(csv|xlsx|xls)$/i.test(f.name))text=await sheetText(f);
+  else throw new Error('Please choose a PDF, image, text, CSV or Excel file.');
   text=text.trim();if(!text)throw new Error('No readable text found in this file.');
-  attach={name:f.name,text:text.slice(0,12000)};showAttach(f.name,text.length>12000?'first part used':'ready')}
+  attach={name:f.name,text:text.slice(0,12000)};if(/\.(csv|xlsx|xls)$/i.test(f.name)&&!$('q').value)$('q').value='Analyze this data: key numbers, trends and a chart.';showAttach(f.name,text.length>12000?'first part used':'ready')}
  catch(x){clearAttach();alert(x.message||'Could not read this file.')}};
 
 /* ---------- voice in / out ---------- */
@@ -381,3 +383,39 @@ function settings(){const c=$('mc');c.innerHTML='<h3>⚙️ Settings</h3><div id
 $('sr').onclick=()=>{SET.web=!SET.web;saveSet();applySet();toast(SET.web?'Web search on (Wikipedia)':'Web search off')};
 $('rs').onclick=()=>{const t=$('q').value.trim()||(prompt('What should I research?')||'').trim();if(t){$('q').value='';research(t.slice(0,200))}};
 $('cn').onclick=connectors;$('st').onclick=settings;applySet();
+
+
+/* ---------- image generation, export (PDF/Word/Excel/PowerPoint), spreadsheets ---------- */
+const XLS='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',PPT='https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js';
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)}
+async function sheetText(f){await loadScript(XLS);const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+ return wb.SheetNames.slice(0,3).map(n=>'Sheet: '+n+'\n'+XLSX.utils.sheet_to_csv(wb.Sheets[n]).split('\n').slice(0,200).join('\n')).join('\n\n')}
+async function genImage(p){const c=$('mc');
+ c.innerHTML='<div class="ldw" style="padding:20px 0"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';openModal();
+ if(!await puterReady()){closeModal();return}
+ try{const im=await puter.ai.txt2img(p),src=im.src||'';
+  c.innerHTML='<h3>🎨 Your image</h3><img id="m_im" style="width:100%;border-radius:12px" alt=""><div class="act"><button id="m_d">⬇️ Download</button></div>';
+  $('m_im').src=src;$('m_d').onclick=async()=>{try{dl(await(await fetch(src)).blob(),'cute-s-ai.png')}catch(e){window.open(src,'_blank')}}}
+ catch(e){c.innerHTML='<p class="err">Could not create the image. Please try a different description.</p>'}}
+$('im').onclick=()=>{const t=$('q').value.trim()||(prompt('Describe the image you want')||'').trim();if(t){$('q').value='';genImage(t.slice(0,500))}};
+function toPdf(text){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(f);const d=f.contentWindow.document;
+ d.open();d.write('<html><head><meta charset="utf-8"><title>CUTE-S-AI</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:24px;color:#000}pre{background:#eee;padding:8px;white-space:pre-wrap}</style></head><body>'+md(text)+'</body></html>');d.close();
+ setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},400)}
+async function toXlsx(text,name){await loadScript(XLS);const rows=[];let t=[];const flush=()=>{if(t.length){rows.push(...t,[]);t=[]}};
+ text.split('\n').forEach(l=>{if(/^\s*\|.*\|\s*$/.test(l)){if(/^\s*\|[\s:|-]+\|\s*$/.test(l))return;t.push(l.trim().replace(/^\||\|$/g,'').split('|').map(c=>{c=c.trim();return c!==''&&!isNaN(c)?Number(c):c}))}else flush()});flush();
+ if(!rows.length)text.split('\n').filter(l=>l.trim()).forEach(l=>rows.push([l.replace(/[*#`]/g,'')]));
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'Sheet1');XLSX.writeFile(wb,name+'.xlsx')}
+async function toPptx(text,name){await loadScript(PPT);const p=new PptxGenJS(),secs=[];let cur=null;
+ text.split('\n').forEach(l=>{const m=l.match(/^\s*#{1,4}\s+(.*)/);if(m){cur={t:m[1].replace(/[*`]/g,''),b:[]};secs.push(cur)}else if(l.trim()&&!/^```/.test(l.trim())){if(!cur){cur={t:name,b:[]};secs.push(cur)}cur.b.push(l.replace(/^[\s>*•-]+/,'').replace(/^\d+[.)]\s+/,'').replace(/\*\*|`/g,'').trim())}});
+ if(!secs.length)throw new Error('empty');
+ secs.forEach(s=>{for(let i=0;i<Math.max(1,s.b.length);i+=7){const sl=p.addSlide();sl.background={color:'070707'};
+  sl.addText(s.t.slice(0,80),{x:.5,y:.3,w:9,h:.8,fontSize:28,bold:true,color:'FF4D5E'});
+  if(s.b.length)sl.addText(s.b.slice(i,i+7).map(x=>({text:x.slice(0,200),options:{bullet:true,breakLine:true}})),{x:.6,y:1.3,w:8.8,h:4,fontSize:18,color:'FFFFFF',valign:'top'})}});
+ await p.writeFile({fileName:name+'.pptx'})}
+function exportMenu(text){const c=$('mc');c.innerHTML='<h3>⬇️ Download</h3><div id="m_e"></div>';const L=$('m_e'),n=(titleOf(text).replace(/[^\w\u0600-\u06FF -]/g,'').trim().slice(0,40)||'cute-s-ai');
+ const go2=fn=>async()=>{try{await fn();toast('Done 💗')}catch(e){alert('Could not create the file. Check your internet and try again.')}};
+ mi(L,'📄 PDF (choose Save as PDF)',go2(()=>{closeModal();toPdf(text)}));
+ mi(L,'📝 Word (.doc)',go2(()=>dl(new Blob(['\ufeff<html><head><meta charset="utf-8"></head><body>'+md(text)+'</body></html>'],{type:'application/msword'}),n+'.doc')));
+ mi(L,'📊 Excel (.xlsx)',go2(()=>toXlsx(text,n)));
+ mi(L,'📽 PowerPoint (.pptx)',go2(()=>toPptx(text,n)));
+ mi(L,'📃 Text (.txt)',go2(()=>dl(new Blob([text],{type:'text/plain'}),n+'.txt')));openModal()}
