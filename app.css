@@ -46,5 +46,4 @@ body[data-v]:not([data-v=chat]) #pet{display:none}
 #pet.happy img,#pet.cheer img{animation:jump .7s 3}#pet.listen img{animation:tilt 1s infinite}#pet.think img{animation:sway 1.2s infinite}
 #pet.love img{animation:pulse .8s infinite;border-color:#ff7a93}#pet.sad img{animation:droop 1s forwards}#pet.sleep img{animation:zz 3s infinite;opacity:.7}#pet.wave img{animation:wv .6s 3}
 
-#pet{width:96px;bottom:150px;right:8px}#pet img{width:96px;height:96px;border-radius:26px;border:0;box-shadow:0 6px 20px rgba(0,0,0,.6);animation:none!important}
-#say{right:100px;bottom:24px}
+.ldw{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}.ld{width:84px;height:auto;display:block}

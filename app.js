@@ -11,7 +11,7 @@ const SAY={idle:['Main yahin hoon 💗'],listen:['Main sun raha hoon 👂','Boli
 const PP={happy:['✨','🎉','⭐'],cheer:['💪','✨','⭐'],love:['💗','💖','💕'],sad:['💧'],hug:['💗','🤗'],think:['💭'],sleep:['💤'],wave:['💗']};
 const GIF={idle:'idle',listen:'listen',think:'think',talk:'talk',happy:'happy',love:'love',hug:'love',sad:'sad',sleep:'sleep',wave:'wave',cheer:'cheer'};
 let petT,idleT,sayT;
-function pet(st,ms,txt){const p=$('pet');if(!p)return;p.className=st;const im=$('pimg'),g='pet-'+(GIF[st]||'idle')+'.gif';if(im&&!im.src.endsWith(g))im.src=g;clearTimeout(petT);if(ms)petT=setTimeout(()=>pet('idle'),ms);
+function pet(st,ms,txt){const p=$('pet');if(!p)return;p.className=st;clearTimeout(petT);if(ms)petT=setTimeout(()=>pet('idle'),ms);
  const a=SAY[st]||SAY.idle;if(st!=='idle'||txt){const s=$('say');s.textContent=txt||a[Math.floor(Math.random()*a.length)];s.classList.add('on');clearTimeout(sayT);sayT=setTimeout(()=>s.classList.remove('on'),ms||2500)}
  (PP[st]||[]).forEach((e,i)=>{for(let k=0;k<2;k++){const x=document.createElement('span');x.className='pp';x.textContent=e;x.style.setProperty('--x',(Math.random()*70-35)+'px');x.style.animationDelay=(i*.15+k*.25)+'s';p.append(x);setTimeout(()=>x.remove(),2200)}});
  clearTimeout(idleT);idleT=setTimeout(()=>pet('sleep'),45000)}
@@ -29,7 +29,7 @@ function welcome(){M.innerHTML='<div class="wel"><img src="logo.png" alt=""><h2>
  SG.forEach(x=>{const b=document.createElement('button');b.textContent=x;b.onclick=()=>{$('q').value=x;ask()};M.querySelector('.sg').append(b)})}
 function bub(role,text){const w=document.createElement('div');w.className='m '+(role==='user'?'u':'a');
  if(role!=='user'){const i=document.createElement('img');i.src='icon.png';i.className='av';w.append(i)}
- const b=document.createElement('div');b.className='b';if(role==='user')b.textContent=text;else b.innerHTML=text?md(text):'<span class="dots"><span></span><span></span><span></span></span>';
+ const b=document.createElement('div');b.className='b';if(role==='user')b.textContent=text;else b.innerHTML=text?md(text):'<div class="ldw"><img class="ld" src="loading.gif" alt=""><span>Soch raha hoon...</span></div>';
  w.append(b);M.append(w);M.scrollTop=M.scrollHeight;return b}
 function acts(b,text){const a=document.createElement('div');a.className='act';
  const c=document.createElement('button');c.textContent='📋 Copy';c.onclick=()=>{navigator.clipboard?.writeText(text);c.textContent='✅ Copied'};
