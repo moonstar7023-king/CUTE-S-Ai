@@ -84,6 +84,7 @@ function sysMsg(){let c=SYS.content;const p=profile;
  if(deep)c+='\nDeep mode is ON: reason step by step, double-check calculations and facts, then give a clear final answer.';
  if(SET.lang!=='auto')c+='\nAlways reply in '+LN[SET.lang]+', whatever language the student writes in.';else c+='\nYou understand every language in the world. Reply in the language the student writes in.';
  c+='\nWhen a chart helps, add a fenced block named chart with JSON like {"type":"bar","title":"T","labels":["A","B"],"values":[1,2]} (type bar, line or pie). For diagrams use a mermaid block. For a small web page or app give one complete html block. For spreadsheet data, calculate carefully and show your working.';
+ c+=({short:'\nKeep answers short and to the point.',long:'\nGive detailed, thorough answers with examples.'})[SET.len]||'';
  return {role:'system',content:c+extra}}
 
 /* ---------- send a message ---------- */
@@ -378,7 +379,10 @@ async function wipe(col){try{const s=await UD().collection(col).limit(200).get()
 function settings(){const c=$('mc');c.innerHTML='<h3>⚙️ Settings</h3><div id="m_s"></div>';const L=$('m_s');
  mi(L,'🔤 Text size: '+({s:'Small',m:'Medium',l:'Large'})[SET.fs],()=>{SET.fs={s:'m',m:'l',l:'s'}[SET.fs];saveSet();applySet();settings()});
  mi(L,'🌐 Reply language: '+langName(SET.lang),langMenu);
+ mi(L,'📏 Answer length: '+({short:'Short',norm:'Normal',long:'Detailed'})[SET.len||'norm'],()=>{SET.len={norm:'short',short:'long',long:'norm'}[SET.len||'norm'];saveSet();settings()});
+ mi(L,'🖼 Image Studio & settings',()=>imStudio());
  mi(L,'🧠 Deep mode: '+(deep?'on':'off'),()=>{$('dp').click();settings()});
+ mi(L,'⬇️ Export this chat (.txt)',()=>{if(!hist.length)return toast('No chat yet');dl(new Blob([hist.map(h=>(h.role==='user'?'You: ':'CUTE-S-AI: ')+(h.shown||h.content)).join('\n\n')],{type:'text/plain'}),'cute-s-ai-chat.txt')});
  mi(L,'🗑 Delete all my chats',async()=>{if(confirm('Delete ALL chats? This cannot be undone.')){await wipe('chats');closeModal()}},'ac');
  mi(L,'🗑 Delete my saved library',async()=>{if(confirm('Delete everything in your library?')){await wipe('saved');closeModal()}},'ac');openModal()}
 $('sr').onclick=()=>{SET.web=!SET.web;saveSet();applySet();toast(SET.web?'Web search on (Wikipedia)':'Web search off')};
@@ -391,23 +395,6 @@ const XLS='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href)},1500)}
 async function sheetText(f){await loadScript(XLS);const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
  return wb.SheetNames.slice(0,3).map(n=>'Sheet: '+n+'\n'+XLSX.utils.sheet_to_csv(wb.Sheets[n]).split('\n').slice(0,200).join('\n')).join('\n\n')}
-const IMG_A=/^(please |plz |ek |mujhe |mujh ko |can you |could you )*(generate|create|make|draw|design|paint|render|sketch)( me| for me)?( an?| the)? .{0,40}?\b(image|picture|photo|logo|poster|wallpaper|sticker|illustration|portrait|painting|drawing|cartoon|anime)\b/i,
- IMG_B=/\b(image|picture|photo|tasveer|tasvir|logo|poster|wallpaper|sticker|cartoon)\b.{0,60}\b(bana|banao|bnao|banaye|banaiye|banado|dikhao)\b/i,
- IMG_C=/(تصویر|فوٹو|لوگو|پوسٹر).{0,40}(بنا)/;
-const isImg=q=>q.length<400&&(IMG_A.test(q)||IMG_B.test(q)||IMG_C.test(q)||/^(draw|sketch)\b/i.test(q));
-async function chatImage(q){busy=true;$('send').disabled=true;
- if(!await puterReady()){busy=false;$('send').disabled=false;return}
- if(!hist.length)M.innerHTML='';
- bub('user',q,q);hist.push({role:'user',content:q,shown:q});const b=bub('assistant','');pet('think');
- try{let p=q;const r=await aiCall([{role:'user',content:'Turn this request into one detailed English prompt for an image generator. Reply with ONLY the prompt.\nRequest: '+q}]);
-  if(r.full&&r.full.length<900)p=r.full.trim();
-  const im=await puter.ai.txt2img(p),src=im.src||'';
-  b.innerHTML='';const e=document.createElement('img');e.src=src;e.alt='';e.style.cssText='width:100%;border-radius:12px;display:block';b.append(e);
-  const a=document.createElement('div');a.className='act';const d=document.createElement('button');d.textContent='⬇️ Download';
-  d.onclick=async()=>{try{dl(await(await fetch(src)).blob(),'cute-s-ai.png')}catch(x){window.open(src,'_blank')}};a.append(d);b.append(a);
-  hist.push({role:'assistant',content:'🎨 Image created: '+q});pet('happy',3000);M.scrollTop=M.scrollHeight;saveChat()}
- catch(e){b.textContent='Could not create the image. Please try a different description.';hist.pop();pet('sad',3000)}
- busy=false;$('send').disabled=false}
 function toPdf(text){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(f);const d=f.contentWindow.document;
  d.open();d.write('<html><head><meta charset="utf-8"><title>CUTE-S-AI</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:24px;color:#000}pre{background:#eee;padding:8px;white-space:pre-wrap}</style></head><body>'+md(text)+'</body></html>');d.close();
  setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},400)}
@@ -437,3 +424,27 @@ const LN={en:'English',ur:'Urdu',rur:'Roman Urdu (Urdu written in English letter
 const langName=c=>(LANGS.find(x=>x[0]===c)||LANGS[0])[1];
 function langMenu(){const c=$('mc');c.innerHTML='<h3>🌐 Reply language</h3><div id="m_l" style="max-height:60vh;overflow-y:auto"></div>';const L=$('m_l');
  LANGS.forEach(([k,n])=>mi(L,(SET.lang===k?'✅ ':'')+n,()=>{SET.lang=k;saveSet();toast(n);settings()},SET.lang===k?'on':''));openModal()}
+
+Object.assign(VL,{rur:'en-IN',sd:'sd-PK',ps:'ps-AF',skr:'ur-PK',bal:'ur-PK',it:'it-IT',pt:'pt-BR',nl:'nl-NL',pl:'pl-PL',uk:'uk-UA',el:'el-GR',he:'he-IL',th:'th-TH',vi:'vi-VN',ms:'ms-MY',fil:'fil-PH',sw:'sw-KE',ta:'ta-IN',te:'te-IN',ml:'ml-IN',kn:'kn-IN',mr:'mr-IN',gu:'gu-IN',ne:'ne-NP',si:'si-LK',sv:'sv-SE',az:'az-AZ',uz:'uz-UZ',am:'am-ET',ha:'ha-NG',cs:'cs-CZ',ro:'ro-RO',hu:'hu-HU',da:'da-DK',fi:'fi-FI',no:'nb-NO'});
+[['skr','سرائیکی Saraiki','Saraiki'],['bal','بلوچی Balochi','Balochi'],['ta','தமிழ் Tamil','Tamil'],['te','తెలుగు Telugu','Telugu'],['ml','മലയാളം Malayalam','Malayalam'],['kn','ಕನ್ನಡ Kannada','Kannada'],['mr','मराठी Marathi','Marathi'],['gu','ગુજરાતી Gujarati','Gujarati'],['ne','नेपाली Nepali','Nepali'],['si','සිංහල Sinhala','Sinhala'],['it','Italiano Italian','Italian'],['pt','Português Portuguese','Portuguese'],['nl','Nederlands Dutch','Dutch'],['pl','Polski Polish','Polish'],['uk','Українська Ukrainian','Ukrainian'],['el','Ελληνικά Greek','Greek'],['he','עברית Hebrew','Hebrew'],['th','ไทย Thai','Thai'],['vi','Tiếng Việt Vietnamese','Vietnamese'],['ms','Bahasa Melayu Malay','Malay'],['fil','Filipino','Filipino'],['sw','Kiswahili Swahili','Swahili'],['sv','Svenska Swedish','Swedish'],['cs','Čeština Czech','Czech'],['ro','Română Romanian','Romanian'],['hu','Magyar Hungarian','Hungarian'],['da','Dansk Danish','Danish'],['fi','Suomi Finnish','Finnish'],['no','Norsk Norwegian','Norwegian'],['az','Azərbaycan Azerbaijani','Azerbaijani'],['uz','Oʻzbek Uzbek','Uzbek'],['am','አማርኛ Amharic','Amharic'],['ha','Hausa','Hausa']]
+ .forEach(([k,n,e])=>{if(!LN[k]){LANGS.push([k,n]);LN[k]=e}});
+(function(){const v=$('pvl');if(!v)return;const cur=v.value;v.innerHTML='';LANGS.filter(x=>x[0]!=='auto'&&x[0]!=='rur'&&VL[x[0]]).forEach(([k,n])=>{const o=document.createElement('option');o.value=k;o.textContent='Voice language: '+n;v.append(o)});v.value=cur||'en'})();
+
+/* ---------- streak, quick tools, focus timer ---------- */
+function streak(){try{const t=new Date().toDateString(),y=new Date(Date.now()-864e5).toDateString();let d=JSON.parse(localStorage.getItem('cs_streak')||'{}');
+ if(d.last!==t){d={last:t,n:d.last===y?(d.n||0)+1:1,best:Math.max(d.best||0,d.last===y?(d.n||0)+1:1)};localStorage.setItem('cs_streak',JSON.stringify(d))}return d}catch(e){return {n:1,best:1}}}
+const TOOLS=[['👶 Explain like I am 5','Explain this like I am 5 years old, with a simple example: '],['🌍 Translate','Translate this into '+'Urdu and English, keep the meaning exact: '],['✍️ Fix my grammar','Fix the grammar and spelling, then show what you changed: '],['📝 Write an essay','Write a well-structured essay (intro, body, conclusion) on: '],['🧮 Solve step by step','Solve this step by step and explain each step: '],['🐞 Debug my code','Find the bug in this code, explain it, and give the fixed code:\n'],['🗺 Mind map','Make a mermaid mind map diagram for this topic: '],['📅 Study plan','Make a day-by-day study plan (with breaks) for: '],['🎤 Viva / interview practice','Act as an examiner. Ask me one question at a time on this topic, wait for my answer, then give feedback: '],['🧠 Memory tricks','Give me mnemonics and memory tricks to remember: '],['📋 Summarize in 5 points','Summarize in exactly 5 simple bullet points: '],['📧 Write an email','Write a polite, professional email for this situation: '],['📊 Compare in a table','Compare these in a table with pros and cons: '],['🔤 Word meanings','Give the meaning, an example sentence, and Urdu meaning of: ']];
+function tools(){const d=streak(),c=$('mc');c.innerHTML='<h3>🛠 Study tools</h3><p class="qw">🔥 Streak: <b>'+d.n+'</b> day'+(d.n===1?'':'s')+' · Best: '+(d.best||d.n)+'</p><div id="m_t" style="max-height:60vh;overflow-y:auto"></div>';
+ TOOLS.forEach(([t,p])=>mi($('m_t'),t,()=>{closeModal();go('chat');const q=$('q');q.value=p;q.focus();q.dispatchEvent(new Event('oninput'));q.style.height='auto';q.style.height=Math.min(q.scrollHeight,120)+'px'}));
+ mi($('m_t'),'⏱ Focus timer (Pomodoro)',focus);openModal()}
+let FT={left:1500,mode:'work',run:false,id:null,done:0};
+function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.stop();a.close()},500)}catch(e){}try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}
+function ftFmt(){return String(Math.floor(FT.left/60)).padStart(2,'0')+':'+String(FT.left%60).padStart(2,'0')}
+function ftTick(){FT.left--;const e=$('ft_t');if(e)e.textContent=ftFmt();
+ if(FT.left<=0){clearInterval(FT.id);FT.run=false;beep();if(FT.mode==='work'){FT.done++;FT.mode='break';FT.left=300;toast('🎉 Great focus! Take a 5 min break')}else{FT.mode='work';FT.left=1500;toast('💪 Break over, back to study')}pet('cheer',3000);focus()}}
+function focus(){const c=$('mc');c.innerHTML='<h3>⏱ Focus timer</h3><div style="text-align:center;padding:10px 0"><div style="font-size:13px;color:var(--mute)">'+(FT.mode==='work'?'📚 Study time (25 min)':'☕ Break time (5 min)')+'</div><div id="ft_t" style="font-size:56px;font-weight:600;letter-spacing:2px;color:var(--rose);margin:6px 0">'+ftFmt()+'</div><div style="font-size:12px;color:var(--mute)">Sessions done today: '+FT.done+'</div></div><div id="m_f"></div>';
+ const L=$('m_f');
+ mi(L,FT.run?'⏸ Pause':'▶ Start',()=>{if(FT.run){clearInterval(FT.id);FT.run=false}else{FT.run=true;FT.id=setInterval(ftTick,1000)}focus()});
+ mi(L,'↺ Reset',()=>{clearInterval(FT.id);FT.run=false;FT.mode='work';FT.left=1500;focus()});
+ mi(L,'⏭ Skip to '+(FT.mode==='work'?'break':'study'),()=>{clearInterval(FT.id);FT.run=false;FT.mode=FT.mode==='work'?'break':'work';FT.left=FT.mode==='work'?1500:300;focus()});openModal()}
+$('tl').onclick=tools;$('ft').onclick=focus;streak();
