@@ -96,3 +96,5 @@ nav button img.ic{margin:0}
 .qw{color:var(--mute);font-size:13px;margin:8px 0}
 .sc{font-family:var(--serif);font-size:42px;color:var(--rose);text-align:center;margin:10px 0}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:80;padding:10px 16px;border-radius:99px;background:#1e1012;border:1px solid var(--hi);color:var(--rose);font-size:13px;white-space:nowrap}
+
+.chart,.mm{overflow-x:auto;margin:8px 0}.mm svg{max-width:100%;height:auto}.b a{color:var(--rose);text-decoration:underline}

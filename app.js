@@ -33,8 +33,8 @@ $('mx').onclick=closeModal;$('mo').addEventListener('click',e=>{if(e.target===$(
 
 /* ---------- markdown (escaped first, then a small safe subset) ---------- */
 function md(t){let h=esc(t);const blocks=[];
- h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>{blocks.push('<pre><code>'+c+'</code></pre>');return '\u0000'+(blocks.length-1)+'\u0000'});
- const inl=s=>s.replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
+ h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>{let o=null;if(l==='chart'){try{const v=chartSvg(JSON.parse(unesc(c)));if(v)o='<div class="chart">'+v+'</div>'}catch(e){}}else if(l==='mermaid')o='<div class="mm" data-src="'+c.trim().replace(/\n/g,'&#10;')+'"><pre><code>'+c+'</code></pre></div>';blocks.push(o||'<pre><code>'+c+'</code></pre>');return '\u0000'+(blocks.length-1)+'\u0000'});
+ const inl=s=>s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
  const out=[];let list=null;const close=()=>{if(list){out.push('</'+list+'>');list=null}};
  h.split('\n').forEach(line=>{let m;
   if((m=line.match(/^\s*[-*•]\s+(.*)/))){if(list!=='ul'){close();out.push('<ul>');list='ul'}out.push('<li>'+inl(m[1])+'</li>')}
@@ -60,6 +60,7 @@ function acts(b,text){const a=document.createElement('div');a.className='act';
  mk('🔊 Listen',x=>speak(text,x));
  mk('📝 Notes',()=>gen('summary',text));mk('❓ Quiz',()=>gen('quiz',text));mk('🃏 Cards',()=>gen('cards',text));
  mk('📚 Save',x=>saveLib({type:'note',title:titleOf(text),content:text},x));
+ if(/```html/i.test(text))mk('▶ Preview',()=>preview(text));
  mk('📤 Share',()=>{$('t').value=lastQ();$('tx').value=text.slice(0,20000);go('up')});
  b.append(a)}
 
@@ -80,7 +81,9 @@ function sysMsg(){let c=SYS.content;const p=profile;
  const pr=projects.find(x=>x.id===cproj);
  if(pr)c+='\nCurrent project: "'+pr.name+'". Student notes about it: '+(pr.ctx||'none')+'. Keep answers relevant to this project.';
  if(deep)c+='\nDeep mode is ON: reason step by step, double-check calculations and facts, then give a clear final answer.';
- return {role:'system',content:c}}
+ if(SET.lang!=='auto')c+='\nAlways reply in '+({en:'English',ur:'Urdu',rur:'Roman Urdu'})[SET.lang]+'.';
+ c+='\nWhen a chart helps, add a fenced block named chart with JSON like {"type":"bar","title":"T","labels":["A","B"],"values":[1,2]} (type bar, line or pie). For diagrams use a mermaid block. For a small web page or app give one complete html block.';
+ return {role:'system',content:c+extra}}
 
 /* ---------- send a message ---------- */
 async function ask(){const q=$('q').value.trim();if((!q&&!attach)||busy)return;
@@ -92,9 +95,11 @@ async function run(content,shown){busy=true;$('send').disabled=true;
  if(!hist.length)M.innerHTML='';
  bub('user',content,shown);hist.push({role:'user',content,shown:shown||''});
  const b=bub('assistant','');pet('think');let started=false;
+ const src=await gather(shown||content);extra=src.length?'\nSources (use when helpful, cite as [1], [2]):\n'+src.map((s,i)=>'['+(i+1)+'] '+s.title+': '+s.text.slice(0,900)).join('\n'):'';
  const send=hist.slice(-20).map((h,i,a)=>({role:h.role,content:i<a.length-2?h.content.slice(0,4000):h.content}));
  const {full,err}=await aiCall([sysMsg(),...send],t=>{if(!started){started=true;pet('talk')}b.innerHTML=md(t);M.scrollTop=M.scrollHeight});
- if(full){mood(shown||content,full);hist.push({role:'assistant',content:full});acts(b,full);saveChat()}
+ extra='';
+ if(full){let fin=full;const ls=src.filter(s=>s.url);if(ls.length){fin+='\n\n**Sources:** '+ls.map(s=>'['+s.title.replace(/[\[\]]/g,'')+']('+s.url+')').join(' · ');b.innerHTML=md(fin)}mood(shown||content,fin);hist.push({role:'assistant',content:fin});acts(b,fin);rich(b);saveChat()}
  else{pet('sad',4000);b.textContent='Something went wrong. Please try again. ('+String(err||'no response').slice(0,150)+')';hist.pop()}
  busy=false;$('send').disabled=false}
 $('send').onclick=ask;$('q').addEventListener('input',()=>pet('listen',1800));
@@ -115,7 +120,7 @@ async function openChat(id){if(busy)return;M.innerHTML='<div class="ldw" style="
  try{const d=await UD().collection('chats').doc(id).collection('msgs').doc('main').get();const meta=chats.find(c=>c.id===id)||{};
   hist=((d.data()||{}).messages||[]).map(m=>({role:m.role,content:m.content,shown:m.shown||''}));cid=id;cproj=meta.project||'';chip();
   M.innerHTML='';if(!hist.length)return welcome();
-  hist.forEach(h=>{const b=bub(h.role,h.content,h.shown);if(h.role!=='user')acts(b,h.content)})}
+  hist.forEach(h=>{const b=bub(h.role,h.content,h.shown);if(h.role!=='user'){acts(b,h.content);rich(b)}})}
  catch(e){M.textContent='Could not open this chat.'}}
 async function delChat(id){try{const ref=UD().collection('chats').doc(id),b=db.batch();b.delete(ref.collection('msgs').doc('main'));b.delete(ref);await b.commit()}catch(e){toast('Could not delete.');return}
  chats=chats.filter(c=>c.id!==id);if(id===cid)newChat()}
@@ -218,7 +223,7 @@ async function gen(kind,text){
  if(!arr){$('mc').innerHTML='<p class="err">The AI answered in the wrong format. Please tap again.</p>';return}
  kind==='quiz'?showQuiz(arr,title,true):showCards(arr,title,true)}
 function showText(title,content,type,canSave){const c=$('mc');c.innerHTML='<h3></h3><div class="b" style="max-width:100%"></div><div class="act"></div>';
- c.querySelector('h3').textContent=title;c.querySelector('.b').innerHTML=md(content);const a=c.querySelector('.act');
+ c.querySelector('h3').textContent=title;c.querySelector('.b').innerHTML=md(content);rich(c);const a=c.querySelector('.act');
  const cp=document.createElement('button');cp.textContent='📋 Copy';cp.onclick=()=>{navigator.clipboard?.writeText(content);cp.textContent='✅ Copied'};a.append(cp);
  if(canSave){const s=document.createElement('button');s.textContent='📚 Save';s.onclick=()=>saveLib({type,title,content},s);a.append(s)}openModal()}
 function showCards(cards,title,canSave){const c=$('mc');let i=0,flip=false;
@@ -317,3 +322,62 @@ $('pub').onclick=async()=>{const E=$('ue'),t=$('t').value.trim(),un=$('u').value
   if(f){const ref=store.ref(`notes/${user.uid}/${Date.now()}_${f.name.replace(/[^\w.-]/g,'_')}`);await ref.put(f);fileUrl=await ref.getDownloadURL();fileName=f.name}
   await db.collection('notes').add({title:t,uni:un,subject:sb,text:tx,fileUrl,fileName,uid:user.uid,author:(user.email||'student').split('@')[0],createdAt:firebase.firestore.FieldValue.serverTimestamp()});
   E.textContent='✅ Published! Thank you for sharing 💗';['t','u','sb','tx','f'].forEach(i=>$(i).value='');load()}catch(e){E.textContent='Upload failed. Please try again.'}$('pub').disabled=false};
+
+
+/* ---------- settings, search, research, connectors, charts, preview ---------- */
+let extra='',SET={fs:'m',lang:'auto',web:false,clib:false,cnotes:false};
+try{Object.assign(SET,JSON.parse(localStorage.getItem('cs_set')||'{}'))}catch(e){}
+const saveSet=()=>{try{localStorage.setItem('cs_set',JSON.stringify(SET))}catch(e){}};
+const unesc=s=>s.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+function applySet(){M.style.zoom={s:.9,m:1,l:1.15}[SET.fs];$('sr').textContent='🔍 Search: '+(SET.web?'on':'off');$('sr').classList.toggle('on',SET.web)}
+function chartSvg(s){const L=(s.labels||[]).map(String).slice(0,12),V=(s.values||[]).map(Number).slice(0,12);if(!L.length||L.length!==V.length||V.some(isNaN))return null;
+ const W=320,H=200,P=28,mx=Math.max(...V,1),col=['#ff4d5e','#ff8a95','#c9102a','#ffb3bb','#9b0f22','#ff6f7d'];let g='';
+ if(s.type==='pie'){const tot=V.reduce((a,b)=>a+b,0)||1;let a0=-Math.PI/2;
+  V.forEach((v,i)=>{const a1=a0+Math.min(v/tot,.9999)*2*Math.PI,p=a=>(100+80*Math.cos(a)).toFixed(1)+' '+(100+80*Math.sin(a)).toFixed(1);
+   g+='<path d="M100 100L'+p(a0)+'A80 80 0 '+(a1-a0>Math.PI?1:0)+' 1 '+p(a1)+'Z" fill="'+col[i%6]+'"/><rect x="196" y="'+(15+i*16)+'" width="9" height="9" fill="'+col[i%6]+'"/><text x="210" y="'+(24+i*16)+'" fill="#ddd" font-size="11">'+esc(L[i]).slice(0,16)+' ('+V[i]+')</text>';a0=a1})}
+ else{const bw=(W-2*P)/L.length,y=v=>H-P-(Math.max(v,0)/mx)*(H-2*P);
+  g+='<line x1="'+P+'" y1="'+(H-P)+'" x2="'+(W-P)+'" y2="'+(H-P)+'" stroke="#555"/>';
+  if(s.type==='line')g+='<polyline fill="none" stroke="#ff4d5e" stroke-width="2" points="'+V.map((v,i)=>(P+bw*i+bw/2)+','+y(v)).join(' ')+'"/>';
+  V.forEach((v,i)=>{const x=P+bw*i;g+=s.type==='line'?'<circle cx="'+(x+bw/2)+'" cy="'+y(v)+'" r="3" fill="#ff4d5e"/>':'<rect x="'+(x+3)+'" y="'+y(v)+'" width="'+(bw-6)+'" height="'+(H-P-y(v))+'" rx="3" fill="#ff4d5e"/>';
+   g+='<text x="'+(x+bw/2)+'" y="'+(y(v)-4)+'" fill="#ddd" font-size="9" text-anchor="middle">'+v+'</text><text x="'+(x+bw/2)+'" y="'+(H-P+12)+'" fill="#aaa" font-size="9" text-anchor="middle">'+esc(L[i]).slice(0,8)+'</text>'})}
+ return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img">'+(s.title?'<text x="160" y="14" fill="#fff" font-size="12" text-anchor="middle">'+esc(s.title).slice(0,40)+'</text>':'')+g+'</svg>'}
+async function rich(root){const n=root.querySelectorAll('.mm');if(!n.length)return;
+ try{if(!window.mermaid){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js');mermaid.initialize({startOnLoad:false,theme:'dark',securityLevel:'strict'})}
+  for(const el of n){try{const r=await mermaid.render('mm'+Math.random().toString(36).slice(2),el.dataset.src);el.innerHTML=r.svg}catch(e){}}}catch(e){}}
+function preview(text){const m=text.match(/```html\s*\n([\s\S]*?)```/i);if(!m)return;const c=$('mc');
+ c.innerHTML='<h3>▶ Preview</h3><iframe sandbox="allow-scripts" style="width:100%;height:60vh;border:0;border-radius:12px;background:#fff"></iframe><div class="act"><button id="m_c">📋 Copy code</button></div>';
+ c.querySelector('iframe').srcdoc=m[1];$('m_c').onclick=e=>{navigator.clipboard?.writeText(m[1]);e.target.textContent='✅ Copied'};openModal()}
+async function wiki(q,n){const r=await fetch('https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit='+n+'&gsrsearch='+encodeURIComponent(q)+'&prop=extracts|info&exintro=1&explaintext=1&exlimit=max&exchars=1200&inprop=url');
+ const j=await r.json();return Object.values((j.query||{}).pages||{}).sort((a,b)=>a.index-b.index).map(x=>({title:x.title,text:x.extract||'',url:x.fullurl||''}))}
+function hit(q,arr){const k=q.toLowerCase().split(/\W+/).filter(w=>w.length>3);return arr.filter(a=>k.some(w=>(a.title+' '+a.text).toLowerCase().includes(w))).slice(0,2)}
+async function gather(q){const out=[];
+ if(SET.web){try{(await wiki(q,3)).forEach(s=>s.text&&out.push(s))}catch(e){}}
+ if(SET.clib){try{const s=await UD().collection('saved').orderBy('createdAt','desc').limit(30).get();
+  out.push(...hit(q,s.docs.map(d=>d.data()).filter(x=>x.type==='note'||x.type==='summary').map(x=>({title:'My library: '+x.title,text:x.content,url:''}))))}catch(e){}}
+ if(SET.cnotes){try{const s=await db.collection('notes').orderBy('createdAt','desc').limit(50).get();
+  out.push(...hit(q,s.docs.map(d=>d.data()).filter(x=>(x.reportCount||0)<HIDE_AT&&x.text).map(x=>({title:'Community note: '+x.title,text:x.text,url:''}))))}catch(e){}}
+ return out}
+async function research(topic){
+ const st=t=>{$('mc').innerHTML='<div class="ldw" style="padding:20px 0"><img class="ld" src="loading.gif" alt=""><span>'+esc(t)+'</span></div>'};
+ st('Please wait... planning');openModal();if(!await puterReady()){closeModal();return}
+ let qs=[topic];const p=await aiCall([{role:'user',content:'Give 3 short Wikipedia search queries to research this topic. Reply ONLY with a JSON array of strings.\nTopic: '+topic}]);
+ try{const a=JSON.parse((p.full.match(/\[[\s\S]*\]/)||['[]'])[0]);if(Array.isArray(a)&&a.length)qs=a.slice(0,3).map(String)}catch(e){}
+ const src=[];for(const q of qs){st('Searching: '+q);try{for(const s of await wiki(q,2))if(s.text&&!src.some(x=>x.url===s.url))src.push(s)}catch(e){}}
+ if(!src.length){$('mc').innerHTML='<p class="err">No sources found. Try different words.</p>';return}
+ st('Writing your report...');
+ const {full}=await aiCall([{role:'system',content:'You are a careful research assistant. Write a clear study report using ONLY the sources: headings, bullet points, and citations like [1]. Use the same language as the topic.'},{role:'user',content:'Topic: '+topic+'\n\n'+src.map((s,i)=>'['+(i+1)+'] '+s.title+': '+s.text).join('\n\n')}]);
+ if(!full){$('mc').innerHTML='<p class="err">Could not write the report. Please try again.</p>';return}
+ showText('Research: '+titleOf(topic),full+'\n\n**Sources:** '+src.map((s,i)=>'['+(i+1)+'] ['+s.title.replace(/[\[\]]/g,'')+']('+s.url+')').join(' · '),'summary',true)}
+function mi(L,t,fn,cls){const b=document.createElement('button');b.className='mi '+(cls||'');b.textContent=t;b.onclick=fn;L.append(b)}
+function connectors(){const c=$('mc');c.innerHTML='<h3>🔌 Connectors</h3><p class="qw">Choose what the AI may read when it answers.</p><div id="m_k"></div><p class="qw">Gmail, Drive and Slack need a server, so they are not available yet.</p>';const L=$('m_k');
+ [['web','📖 Wikipedia (web search)'],['clib','📚 My library (saved notes)'],['cnotes','🌐 Community notes']].forEach(([k,t])=>mi(L,(SET[k]?'✅ ':'⬜ ')+t,()=>{SET[k]=!SET[k];saveSet();applySet();connectors()},SET[k]?'on':''));openModal()}
+async function wipe(col){try{const s=await UD().collection(col).limit(200).get();for(const d of s.docs){if(col==='chats')await d.ref.collection('msgs').doc('main').delete();await d.ref.delete()}if(col==='chats')newChat();toast('Deleted')}catch(e){toast('Could not delete.')}}
+function settings(){const c=$('mc');c.innerHTML='<h3>⚙️ Settings</h3><div id="m_s"></div>';const L=$('m_s');
+ mi(L,'🔤 Text size: '+({s:'Small',m:'Medium',l:'Large'})[SET.fs],()=>{SET.fs={s:'m',m:'l',l:'s'}[SET.fs];saveSet();applySet();settings()});
+ mi(L,'🌐 Reply language: '+({auto:'Auto',en:'English',ur:'Urdu',rur:'Roman Urdu'})[SET.lang],()=>{SET.lang={auto:'en',en:'ur',ur:'rur',rur:'auto'}[SET.lang];saveSet();settings()});
+ mi(L,'🧠 Deep mode: '+(deep?'on':'off'),()=>{$('dp').click();settings()});
+ mi(L,'🗑 Delete all my chats',async()=>{if(confirm('Delete ALL chats? This cannot be undone.')){await wipe('chats');closeModal()}},'ac');
+ mi(L,'🗑 Delete my saved library',async()=>{if(confirm('Delete everything in your library?')){await wipe('saved');closeModal()}},'ac');openModal()}
+$('sr').onclick=()=>{SET.web=!SET.web;saveSet();applySet();toast(SET.web?'Web search on (Wikipedia)':'Web search off')};
+$('rs').onclick=()=>{const t=$('q').value.trim()||(prompt('What should I research?')||'').trim();if(t){$('q').value='';research(t.slice(0,200))}};
+$('cn').onclick=connectors;$('st').onclick=settings;applySet();

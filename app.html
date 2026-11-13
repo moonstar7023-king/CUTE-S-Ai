@@ -1,9 +1,13 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#070707">
 <title>CUTE-S-AI</title><link rel="icon" href="icon.png?v=2"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png?v=2">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="app.css?v=13"></head><body>
-<header><img src="icon.png?v=2" alt=""><div class="ttl">CUTE-S-<b>AI</b></div><button class="ib" id="hb" title="Chat history">🕘</button><button class="ib" id="nc" title="New chat">✏️</button></header>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="app.css?v=14"></head><body>
+<header><img src="icon.png?v=2" alt=""><div class="ttl">CUTE-S-<b>AI</b></div><button class="ib" id="hb" title="Chat history">🕘</button><button class="ib" id="nc" title="New chat">✏️</button>
+<button class="ib" id="st" title="Settings">⚙️</button></header>
 <main>
-<section id="chat" class="view on"><div class="cb"><button class="chip" id="pj">📁 No project</button><button class="chip" id="dp">🧠 Deep: off</button></div><div id="msgs"></div><div class="ap" id="ap" hidden></div>
+<section id="chat" class="view on"><div class="cb"><button class="chip" id="pj">📁 No project</button><button class="chip" id="dp">🧠 Deep: off</button>
+<button class="chip" id="sr">🔍 Search: off</button>
+<button class="chip" id="rs">🧪 Research</button>
+<button class="chip" id="cn">🔌 Connect</button></div><div id="msgs"></div><div class="ap" id="ap" hidden></div>
 <div class="bar"><button class="ib" id="at" aria-label="Attach a file">📎</button><input type="file" id="af" accept="application/pdf,image/*,text/plain,.txt,.md" style="display:none"><textarea id="q" rows="1" placeholder="Ask me anything, I will help you learn..."></textarea><button class="ib" id="mic" aria-label="Speak">🎤</button><button class="send" id="send" aria-label="Send">➤</button></div></section>
 <section id="lib" class="view"><h3>Notes Library</h3><input id="s" placeholder="🔍 Search title, subject, university"><div class="row"><input id="fu" list="ul" placeholder="University"><input id="fs" list="sl" placeholder="Subject"></div><button class="pb" id="ld">Search</button><div id="list"></div><button class="pb" id="more" hidden>Show more</button><datalist id="ul"></datalist><datalist id="sl"></datalist></section>
 <section id="up" class="view"><h3>Share your notes</h3><input id="t" maxlength="100" placeholder="Title"><div class="row"><input id="u" maxlength="60" placeholder="University"><input id="sb" maxlength="60" placeholder="Subject"></div>
