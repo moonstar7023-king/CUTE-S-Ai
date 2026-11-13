@@ -47,3 +47,13 @@ body[data-v]:not([data-v=chat]) #pet{display:none}
 #pet.love img{animation:pulse .8s infinite;border-color:#ff7a93}#pet.sad img{animation:droop 1s forwards}#pet.sleep img{animation:zz 3s infinite;opacity:.7}#pet.wave img{animation:wv .6s 3}
 
 .ldw{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}.ld{width:84px;height:auto;display:block}
+
+nav button i.ic{display:block;width:28px;height:28px;margin:0 auto 3px;background:currentColor;-webkit-mask:var(--i) center/contain no-repeat;mask:var(--i) center/contain no-repeat}
+nav button img.ic{display:block;width:28px;height:28px;margin:0 auto 3px;border-radius:50%;object-fit:cover;border:2px solid transparent;opacity:.75}
+nav button.on img.ic{border-color:var(--hi);opacity:1}
+
+nav button{border-top:2px solid transparent;display:flex;align-items:center;justify-content:center;min-height:54px}
+nav button.on{border-top-color:var(--hi)}
+nav button img.wm{height:26px;width:auto;max-width:92%;opacity:.5;transition:.2s}
+nav button.on img.wm{opacity:1;filter:drop-shadow(0 0 6px rgba(255,66,88,.65))}
+nav button img.ic{margin:0}
