@@ -115,7 +115,7 @@ async function saveChat(){if(!hist.length)return;
  const msgs=hist.slice(-40).map((h,i,a)=>({role:h.role,content:h.content.slice(0,i<a.length-4?3000:14000),shown:(h.shown||'').slice(0,500)}));
  const first=hist.find(h=>h.role==='user');const title=((first&&(first.shown||first.content))||'Chat').split('\n')[0].slice(0,60);
  try{const ref=UD().collection('chats').doc(cid),b=db.batch();
-  const meta=chats.find(c=>c.id===cid),dd={project:cproj,updatedAt:TS()};if(!(meta&&meta.renamed))dd.title=title;b.set(ref,dd,{merge:true});b.set(ref.collection('msgs').doc('main'),{messages:msgs});await b.commit()}catch(e){toast('Could not save this chat.')}}
+  b.set(ref,{title,project:cproj,updatedAt:TS()});b.set(ref.collection('msgs').doc('main'),{messages:msgs});await b.commit()}catch(e){toast('Could not save this chat.')}}
 async function loadChats(){try{const s=await UD().collection('chats').orderBy('updatedAt','desc').limit(60).get();chats=s.docs.map(d=>({id:d.id,...d.data()}))}catch(e){chats=[]}}
 function newChat(){if(busy)return;hist=[];cid=null;clearAttach();welcome();chip();go('chat')}
 $('nc').onclick=newChat;
@@ -132,21 +132,14 @@ async function openDrawer(){$('dr').hidden=false;$('dl').textContent='Please wai
 function renderDrawer(){const J=$('dj');J.innerHTML='';
  const chipB=(t,v)=>{const b=document.createElement('button');b.className='chip'+(fproj===v?' on':'');b.textContent=t;b.onclick=()=>{fproj=v;renderDrawer()};J.append(b)};
  chipB('All','');projects.forEach(p=>chipB('📁 '+p.name,p.id));
- const L=$('dl');L.innerHTML='';const list=chats.filter(c=>!fproj||c.project===fproj).sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0));
+ const L=$('dl');L.innerHTML='';const list=chats.filter(c=>!fproj||c.project===fproj);
  if(!list.length){L.textContent='No chats here yet. Start one 💗';return}
  list.forEach(c=>{const r=document.createElement('div');r.className='ci'+(c.id===cid?' on':'');
   const pn=(projects.find(p=>p.id===c.project)||{}).name;const dt=c.updatedAt&&c.updatedAt.toDate?c.updatedAt.toDate().toLocaleDateString():'';
-  r.innerHTML='<div><b>'+(c.pinned?'📌 ':'')+esc(c.title)+'</b><small>'+(pn?'📁 '+esc(pn)+' · ':'')+esc(dt)+'</small></div>';
+  r.innerHTML='<div><b>'+esc(c.title)+'</b><small>'+(pn?'📁 '+esc(pn)+' · ':'')+esc(dt)+'</small></div>';
   r.firstChild.onclick=()=>{closeDrawer();openChat(c.id)};
   const d=document.createElement('button');d.className='d';d.textContent='🗑';d.onclick=async e=>{e.stopPropagation();if(!confirm('Delete this chat?'))return;await delChat(c.id);renderDrawer()};
-  const mkb=(t,tt,fn)=>{const b=document.createElement('button');b.className='d';b.textContent=t;b.title=tt;b.onclick=async e=>{e.stopPropagation();await fn()};return b};
-  const pin=mkb(c.pinned?'📍':'📌','Pin',async()=>{try{await UD().collection('chats').doc(c.id).set({pinned:!c.pinned},{merge:true});c.pinned=!c.pinned;renderDrawer()}catch(e){toast('Could not pin.')}});
-  const ren=mkb('✏️','Rename',async()=>{const t=(prompt('New chat name',c.title)||'').trim().slice(0,60);if(!t)return;try{await UD().collection('chats').doc(c.id).set({title:t,renamed:true},{merge:true});c.title=t;c.renamed=true;renderDrawer()}catch(e){toast('Could not rename.')}});
-  const exp=mkb('⬇️','Export',()=>exportChat(c));
-  r.append(pin,ren,exp,d);L.append(r)})}
-async function exportChat(c){try{let msgs;if(c.id===cid)msgs=hist;else{const d=await UD().collection('chats').doc(c.id).collection('msgs').doc('main').get();msgs=((d.data()||{}).messages||[])}
- const t='CUTE-S-AI chat: '+c.title+'\n\n'+msgs.map(m=>(m.role==='user'?'You: ':'CUTE-S-AI: ')+(m.role==='user'?(m.shown||m.content):m.content)).join('\n\n');
- dl(new Blob([t],{type:'text/plain;charset=utf-8'}),(c.title||'chat').replace(/[^\w\- ]+/g,'').trim().slice(0,40)+'.txt');toast('Chat exported ⬇️')}catch(e){toast('Could not export.')}}
+  r.append(d);L.append(r)})}
 $('hb').onclick=openDrawer;$('dx').onclick=closeDrawer;$('dbg').onclick=closeDrawer;
 
 /* ---------- projects ---------- */
@@ -272,7 +265,7 @@ document.querySelector('nav [data-v=me]').addEventListener('click',loadLib);
 
 /* ---------- profile (memory) ---------- */
 function fillProfile(){$('pcl').value=profile.cls||'';$('psb').value=profile.subj||'';$('pgl').value=profile.goal||'';$('pvl').value=profile.vlang||'en'}
-$('psv').onclick=async()=>{profile={...profile,cls:$('pcl').value.trim().slice(0,100),subj:$('psb').value.trim().slice(0,150),goal:$('pgl').value.trim().slice(0,150),vlang:$('pvl').value};
+$('psv').onclick=async()=>{profile={cls:$('pcl').value.trim().slice(0,100),subj:$('psb').value.trim().slice(0,150),goal:$('pgl').value.trim().slice(0,150),vlang:$('pvl').value};
  try{await UD().set(profile,{merge:true});toast('Profile saved 💗')}catch(e){toast('Could not save. Try again.')}};
 
 /* ---------- start ---------- */
@@ -385,7 +378,6 @@ function connectors(){const c=$('mc');c.innerHTML='<h3>🔌 Connectors</h3><p cl
 async function wipe(col){try{const s=await UD().collection(col).limit(200).get();for(const d of s.docs){if(col==='chats')await d.ref.collection('msgs').doc('main').delete();await d.ref.delete()}if(col==='chats')newChat();toast('Deleted')}catch(e){toast('Could not delete.')}}
 function settings(){const c=$('mc');c.innerHTML='<h3>⚙️ Settings</h3><div id="m_s"></div>';const L=$('m_s');
  mi(L,'🔤 Text size: '+({s:'Small',m:'Medium',l:'Large'})[SET.fs],()=>{SET.fs={s:'m',m:'l',l:'s'}[SET.fs];saveSet();applySet();settings()});
- mi(L,'🌗 Theme: '+(document.body.classList.contains('light')?'Light':'Dark'),()=>{applyTheme(document.body.classList.contains('light')?'dark':'light');settings()});
  mi(L,'🌐 Reply language: '+langName(SET.lang),langMenu);
  mi(L,'📏 Answer length: '+({short:'Short',norm:'Normal',long:'Detailed'})[SET.len||'norm'],()=>{SET.len={norm:'short',short:'long',long:'norm'}[SET.len||'norm'];saveSet();settings()});
  mi(L,'🖼 Image Studio & settings',()=>imStudio());
@@ -456,8 +448,3 @@ function focus(){const c=$('mc');c.innerHTML='<h3>⏱ Focus timer</h3><div style
  mi(L,'↺ Reset',()=>{clearInterval(FT.id);FT.run=false;FT.mode='work';FT.left=1500;focus()});
  mi(L,'⏭ Skip to '+(FT.mode==='work'?'break':'study'),()=>{clearInterval(FT.id);FT.run=false;FT.mode=FT.mode==='work'?'break':'work';FT.left=FT.mode==='work'?1500:300;focus()});openModal()}
 $('tl').onclick=tools;$('ft').onclick=focus;streak();
-
-/* ---------- theme ---------- */
-function applyTheme(t){document.body.classList.toggle('light',t==='light');try{localStorage.setItem('cs_theme',t)}catch(e){}
- const mt=document.querySelector('meta[name=theme-color]');if(mt)mt.content=t==='light'?'#fbf5f6':'#070707'}
-try{applyTheme(localStorage.getItem('cs_theme')==='light'?'light':'dark')}catch(e){applyTheme('dark')}
