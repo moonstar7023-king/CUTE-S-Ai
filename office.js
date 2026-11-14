@@ -389,8 +389,8 @@ const ofFmtSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1)
 /* =====================================================================
    Intent detection + image flags (pure, used by cmd.js)
    ===================================================================== */
-const OF_START = /^(?:(?:please|plz|pls|kindly|ek|mujhe|mujh ko|mere liye|meray liye|can you|could you|will you|zara|i want|i need|mujhe chahiye)\s+)*(?:make|create|generate|build|prepare|write|design|banao|bana|bnao|banado|tayyar|likho|likh)\b/i;
-const OF_END = /\b(?:bana|banao|bnao|banado|banadein|bana do|bana dein|bana den|banaye|banaiye|tayyar kar|tayar kar)\b|بنا/i;
+const OF_START = /^(?:(?:please|plz|pls|kindly|ek|mujhe|mujh ko|mere liye|meray liye|can you|could you|will you|zara|i want|i need|mujhe chahiye)\s+)*(?:make|create|generate|build|prepare|write|design|give|send|get|convert|save|export|banao|bana|bnao|banado|tayyar|likho|likh|dedo|do)\b/i;
+const OF_END = /\b(?:bana|banao|bnao|banado|banadein|bana do|bana dein|bana den|banaye|banaiye|tayyar kar|tayar kar|chahiye|chaiye|chahye|dedo|de do|dena)\b|بنا/i;
 const OF_TYPES = [
   ['pptx', /\b(?:power\s?point|pptx?|slides?|presentation)\b|پریزنٹیشن|سلائیڈ/i],
   ['xlsx', /\b(?:excel|xlsx?|spread\s?sheet)\b|ایکسل/i],
@@ -399,7 +399,19 @@ const OF_TYPES = [
   ['csv', /\bcsv\b/i],
   ['txt', /\b(?:txt|text file)\b/i],
   ['html', /\b(?:html (?:file|page)|web ?page)\b/i],
-  ['zip', /\bzip\b/i]
+  ['zip', /\bzip\b/i],
+  ['json', /\bjson\b/i],
+  ['xml', /\bxml\b/i],
+  ['ics', /\bics\b|calendar (?:file|event|invite)/i],
+  ['vcf', /\bvcf\b|contact card|vcard/i],
+  ['md', /\bmarkdown\b|\bmd file\b/i]
+];
+/* exact formats: [extension, pattern, base kind] */
+const OF_VARS = [
+  ['docm', /\bdocm\b/i, 'docx'], ['dotx', /\bdotx\b|word template/i, 'docx'], ['dotm', /\bdotm\b/i, 'docx'], ['rtf', /\brtf\b|rich text/i, 'docx'], ['odt', /\bodt\b|open ?document text/i, 'docx'],
+  ['xlsm', /\bxlsm\b/i, 'xlsx'], ['xltx', /\bxltx\b|excel template/i, 'xlsx'], ['xltm', /\bxltm\b/i, 'xlsx'], ['ods', /\bods\b|open ?document spread ?sheet/i, 'xlsx'],
+  ['pptm', /\bpptm\b/i, 'pptx'], ['ppsx', /\bppsx\b|slide ?show/i, 'pptx'], ['ppsm', /\bppsm\b/i, 'pptx'], ['potx', /\bpotx\b|(?:power ?point|ppt) template/i, 'pptx'], ['potm', /\bpotm\b/i, 'pptx'], ['odp', /\bodp\b|open ?document presentation/i, 'pptx'],
+  ['tsv', /\btsv\b/i, 'tsv'], ['htm', /\bhtm\b/i, 'htm'], ['eml', /\beml\b|email file/i, 'eml']
 ];
 const OF_TPLS = [['resume', /\b(?:resume|cv|biodata)\b/i, 'docx'], ['invoice', /\binvoice\b/i, 'xlsx'], ['timetable', /\b(?:timetable|time table|datesheet)\b/i, 'xlsx'], ['budget', /\bbudget\b/i, 'xlsx']];
 function ofIntent(q) {
@@ -408,9 +420,10 @@ function ofIntent(q) {
   if (!gate) return null;
   if (/^(?:how|kaise|kese|what|why|kya)\b/i.test(q)) return null;
   const codey = /\b(?:python|java|javascript|c\+\+|code|program|script|function|library|api|react|node)\b/i.test(q);
-  let kind = null; for (const [k, re] of OF_TYPES) if (re.test(q)) { kind = k; break; }
+  let kind = null, ext = null; for (const [e, re, k] of OF_VARS) if (re.test(q)) { ext = e; kind = k; break; }
+  if (!kind) for (const [k, re] of OF_TYPES) if (re.test(q)) { kind = k; break; }
   let tpl = null; for (const [t, re, k] of OF_TPLS) if (re.test(q) && (kind || (!/^\s*(?:please\s+)?write\b/i.test(q) && OF_START.test(q) || OF_END.test(q)))) { tpl = t; if (!kind) kind = k; break; }
-  if (kind && !(codey && ['pdf', 'csv', 'docx', 'xlsx', 'txt', 'html'].includes(kind) && !tpl)) return { type: 'file', kind, tpl };
+  if (kind && !(codey && ['pdf', 'csv', 'docx', 'xlsx', 'txt', 'html'].includes(kind) && !tpl)) return { type: 'file', kind, tpl, ext };
   const sk = /\b(?:quiz|mcqs?)\b/i.test(q) ? 'quiz' : /\bflash ?cards?\b/i.test(q) ? 'cards' : null;
   if (sk) return { type: 'study', kind: sk };
   return null;
@@ -427,4 +440,235 @@ function ofImgFlags(q, ratios, styles) {
     return m;
   });
   return { q: q.replace(/\s+/g, ' ').trim(), ratio, n, style };
+}
+
+/* =====================================================================
+   EXTRA FORMATS (v2): .docm .dotx .dotm .rtf .odt .doc | .xlsm .xltx .xltm
+   .ods .xls | .pptm .ppsx .ppsm .potx .potm .odp | .tsv .htm .eml
+   Everything is built in the browser, no CDN needed.
+   ===================================================================== */
+const OX = 'application/vnd.openxmlformats-officedocument.', OM = 'application/vnd.ms-';
+Object.assign(OF_MIME, {
+  docm: OM + 'word.document.macroEnabled.12', dotx: OX + 'wordprocessingml.template', dotm: OM + 'word.template.macroEnabled.12',
+  xlsm: OM + 'excel.sheet.macroEnabled.12', xltx: OX + 'spreadsheetml.template', xltm: OM + 'excel.template.macroEnabled.12',
+  pptm: OM + 'powerpoint.presentation.macroEnabled.12', ppsx: OX + 'presentationml.slideshow', ppsm: OM + 'powerpoint.slideshow.macroEnabled.12',
+  potx: OX + 'presentationml.template', potm: OM + 'powerpoint.template.macroEnabled.12',
+  rtf: 'application/rtf', doc: 'application/msword', xls: 'application/vnd.ms-excel',
+  odt: 'application/vnd.oasis.opendocument.text', ods: 'application/vnd.oasis.opendocument.spreadsheet', odp: 'application/vnd.oasis.opendocument.presentation',
+  tsv: 'text/tab-separated-values;charset=utf-8', htm: 'text/html;charset=utf-8', eml: 'message/rfc822'
+});
+/* extension -> [base main-part content type, new main-part content type] (Office files are ZIPs; only this one line changes) */
+const OF_RETYPE = (() => {
+  const W = OX + 'wordprocessingml.document.main+xml', X = OX + 'spreadsheetml.sheet.main+xml', P = OX + 'presentationml.presentation.main+xml';
+  return {
+    docm: [W, OM + 'word.document.macroEnabled.main+xml'], dotx: [W, OX + 'wordprocessingml.template.main+xml'], dotm: [W, OM + 'word.template.macroEnabledTemplate.main+xml'],
+    xlsm: [X, OM + 'excel.sheet.macroEnabled.main+xml'], xltx: [X, OX + 'spreadsheetml.template.main+xml'], xltm: [X, OM + 'excel.template.macroEnabled.main+xml'],
+    pptm: [P, OM + 'powerpoint.presentation.macroEnabled.main+xml'], ppsx: [P, OX + 'presentationml.slideshow.main+xml'], ppsm: [P, OM + 'powerpoint.slideshow.macroEnabled.main+xml'],
+    potx: [P, OX + 'presentationml.template.main+xml'], potm: [P, OM + 'powerpoint.template.macroEnabled.main+xml']
+  };
+})();
+
+/* ---------- ZIP reader (handles stored + deflate, e.g. files made by PptxGenJS) ---------- */
+async function ofUnzip(blob) {
+  const b = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(b.buffer), out = [], dec = new TextDecoder();
+  let e = b.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('Could not read the file package');
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  for (let i = 0; i < n; i++) {
+    const meth = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = dec.decode(b.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
+    if (name.endsWith('/')) continue;
+    const ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true);
+    let d = b.subarray(ds, ds + csz);
+    if (meth === 8) d = new Uint8Array(await new Response(new Blob([d]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    out.push({ name, data: d });
+  }
+  return out;
+}
+async function ofRetype(blob, ext) {
+  const m = OF_RETYPE[ext], files = await ofUnzip(blob), dec = new TextDecoder(), enc = new TextEncoder(); let hit = false;
+  for (const f of files) if (f.name === '[Content_Types].xml') { const s = dec.decode(f.data); if (s.includes(m[0])) { hit = true; f.data = enc.encode(s.split(m[0]).join(m[1])); } }
+  if (!hit) throw new Error('Could not convert to .' + ext);
+  files.sort((a, b) => (a.name === '[Content_Types].xml' ? -1 : 0) - (b.name === '[Content_Types].xml' ? -1 : 0));
+  return ofZip(files, OF_MIME[ext]);
+}
+
+/* ---------- markdown helpers ---------- */
+function ofRuns(s) {
+  s = String(s == null ? '' : s).replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+  const out = [], re = /\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\s][^*]*)\*|`([^`]+)`/g; let i = 0, m;
+  while ((m = re.exec(s))) { if (m.index > i) out.push({ t: s.slice(i, m.index) }); if (m[1] || m[2]) out.push({ t: m[1] || m[2], b: 1 }); else if (m[3]) out.push({ t: m[3], i: 1 }); else out.push({ t: m[4] }); i = re.lastIndex; }
+  if (i < s.length) out.push({ t: s.slice(i) });
+  return out;
+}
+function ofMdBlocks(md) {
+  const L = String(md || '').replace(/\r/g, '').split('\n'), out = []; let i = 0;
+  const isRow = l => /^\s*\|.*\|\s*$/.test(l), isSep = l => /^\s*\|[\s:|-]+\|\s*$/.test(l), cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  while (i < L.length) {
+    const l = L[i]; let m;
+    if (/^\s*```/.test(l)) { i++; while (i < L.length && !/^\s*```/.test(L[i])) { if (L[i].trim()) out.push({ t: 'p', x: L[i], code: 1 }); i++; } i++; continue; }
+    if (isRow(l) && i + 1 < L.length && isSep(L[i + 1])) { const rows = [cells(l)]; i += 2; while (i < L.length && isRow(L[i])) rows.push(cells(L[i++])); out.push({ t: 'tb', rows }); continue; }
+    if ((m = l.match(/^\s*(#{1,6})\s+(.*)/))) out.push({ t: 'h', l: Math.min(m[1].length, 3), x: m[2] });
+    else if ((m = l.match(/^\s*[-*•]\s+(.*)/))) out.push({ t: 'li', x: m[1] });
+    else if ((m = l.match(/^\s*(\d+)[.)]\s+(.*)/))) out.push({ t: 'li', o: 1, x: m[2] });
+    else if (/^\s*([-*_])\1{2,}\s*$/.test(l)) { }
+    else if (l.trim()) out.push({ t: 'p', x: l.replace(/^\s*>\s?/, '') });
+    i++;
+  }
+  return out;
+}
+
+/* ---------- .rtf ---------- */
+function ofRtfEsc(s) {
+  let o = '';
+  for (const ch of String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')) {
+    const c = ch.codePointAt(0);
+    if (ch === '\\' || ch === '{' || ch === '}') o += '\\' + ch;
+    else if (c < 128) o += ch;
+    else if (c > 0xFFFF) { const u = c - 0x10000; o += '\\u' + (0xD800 + (u >> 10) - 65536) + '?\\u' + (0xDC00 + (u & 0x3FF) - 65536) + '?'; }
+    else o += '\\u' + (c > 32767 ? c - 65536 : c) + '?';
+  }
+  return o;
+}
+function mdToRtf(md) {
+  const run = s => ofRuns(s).map(r => { const e = ofRtfEsc(r.t); return r.b ? '{\\b ' + e + '}' : r.i ? '{\\i ' + e + '}' : e; }).join('');
+  let o = '{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1{\\fonttbl{\\f0\\fswiss Calibri;}}\\viewkind4\\f0\\fs24\n', n = 0;
+  ofMdBlocks(md).forEach(b => {
+    const dir = ofRtl(b.t === 'tb' ? b.rows.map(r => r.join(' ')).join(' ') : b.x) ? '\\rtlpar\\qr' : '\\ltrpar';
+    if (b.t !== 'li') n = 0;
+    if (b.t === 'h') o += '\\pard' + dir + '\\sb240\\sa120{\\b\\fs' + (b.l === 1 ? 40 : b.l === 2 ? 32 : 28) + ' ' + run(b.x) + '}\\par\n';
+    else if (b.t === 'li') o += '\\pard' + dir + '\\li540\\fi-300 ' + (b.o ? ++n + '.' : '\\bullet') + '\\tab ' + run(b.x) + '\\par\n';
+    else if (b.t === 'tb') {
+      b.rows.forEach((r, ri) => {
+        const w = Math.floor(9000 / r.length); o += '\\trowd\\trgaph80';
+        r.forEach((_, ci) => o += '\\clbrdrt\\brdrs\\clbrdrl\\brdrs\\clbrdrb\\brdrs\\clbrdrr\\brdrs\\cellx' + w * (ci + 1));
+        r.forEach(c => o += '\\pard\\intbl ' + (ri ? run(c) : '{\\b ' + run(c) + '}') + '\\cell'); o += '\\row\n';
+      });
+      o += '\\pard\\par\n';
+    } else o += '\\pard' + dir + '\\sa120 ' + (b.code ? '{\\fs20 ' + run(b.x) + '}' : run(b.x)) + '\\par\n';
+  });
+  return new Blob([o + '}'], { type: OF_MIME.rtf });
+}
+
+/* ---------- .doc (Word HTML: opens in Word and every Word-compatible app) ---------- */
+function mdToWordHtml(md, title) {
+  const il = s => ofRuns(s).map(r => { const e = XE(r.t); return r.b ? '<b>' + e + '</b>' : r.i ? '<i>' + e + '</i>' : e; }).join('');
+  let h = '', list = null; const close = () => { if (list) { h += '</' + list + '>'; list = null; } };
+  ofMdBlocks(md).forEach(b => {
+    if (b.t === 'li') { const t = b.o ? 'ol' : 'ul'; if (list !== t) { close(); h += '<' + t + '>'; list = t; } h += '<li>' + il(b.x) + '</li>'; return; }
+    close();
+    if (b.t === 'h') h += '<h' + b.l + '>' + il(b.x) + '</h' + b.l + '>';
+    else if (b.t === 'tb') h += '<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse">' + b.rows.map((r, i) => '<tr>' + r.map(c => '<t' + (i ? 'd' : 'h') + '>' + il(c) + '</t' + (i ? 'd' : 'h') + '>').join('') + '</tr>').join('') + '</table><p></p>';
+    else h += '<p' + (ofRtl(b.x) ? ' dir="rtl"' : '') + '>' + (b.code ? '<code>' + XE(b.x) + '</code>' : il(b.x)) + '</p>';
+  });
+  close();
+  return new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>' + XE(title || 'Document') + '</title><style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt}</style></head><body>' + h + '</body></html>'], { type: OF_MIME.doc });
+}
+
+/* ---------- OpenDocument (.odt / .ods / .odp) ---------- */
+const ODF_NS = 'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0" xmlns:of="urn:oasis:names:tc:opendocument:xmlns:of:1.2"';
+function ofOdf(ext, body, auto, styles) {
+  const mime = OF_MIME[ext], man = XHEAD + '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:version="1.2" manifest:media-type="' + mime + '"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/></manifest:manifest>';
+  const content = XHEAD + '<office:document-content ' + ODF_NS + ' office:version="1.2"><office:automatic-styles>' + auto + '</office:automatic-styles><office:body>' + body + '</office:body></office:document-content>';
+  const st = XHEAD + '<office:document-styles ' + ODF_NS + ' office:version="1.2">' + (styles || '') + '</office:document-styles>';
+  return ofZip([{ name: 'mimetype', data: mime }, { name: 'META-INF/manifest.xml', data: man }, { name: 'content.xml', data: content }, { name: 'styles.xml', data: st }], mime);
+}
+const odSpan = s => ofRuns(s).map(r => r.b ? '<text:span text:style-name="B">' + XE(r.t) + '</text:span>' : r.i ? '<text:span text:style-name="I">' + XE(r.t) + '</text:span>' : XE(r.t)).join('');
+function mdToOdt(md) {
+  let b = '', list = null, tn = 0; const close = () => { if (list) { b += '</text:list>'; list = null; } };
+  ofMdBlocks(md).forEach(x => {
+    if (x.t === 'li') { const t = x.o ? 'N' : 'L'; if (list !== t) { close(); b += '<text:list text:style-name="' + t + '">'; list = t; } b += '<text:list-item><text:p>' + odSpan(x.x) + '</text:p></text:list-item>'; return; }
+    close();
+    if (x.t === 'h') b += '<text:h text:style-name="H' + x.l + '" text:outline-level="' + x.l + '">' + odSpan(x.x) + '</text:h>';
+    else if (x.t === 'tb') {
+      const nc = Math.max(...x.rows.map(r => r.length));
+      b += '<table:table table:name="T' + (++tn) + '" table:style-name="TB"><table:table-column table:number-columns-repeated="' + nc + '"/>' + x.rows.map((r, ri) => '<table:table-row>' + Array.from({ length: nc }, (_, c) => '<table:table-cell table:style-name="TC" office:value-type="string"><text:p' + (ri ? '' : ' text:style-name="TH"') + '>' + odSpan(r[c] || '') + '</text:p></table:table-cell>').join('') + '</table:table-row>').join('') + '</table:table>';
+    } else b += '<text:p>' + odSpan(x.x) + '</text:p>';
+  });
+  close();
+  const hs = (n, sz) => '<style:style style:name="H' + n + '" style:family="paragraph"><style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0.2cm"/><style:text-properties fo:font-size="' + sz + 'pt" fo:font-weight="bold"/></style:style>';
+  const auto = '<style:style style:name="B" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style><style:style style:name="I" style:family="text"><style:text-properties fo:font-style="italic"/></style:style>' + hs(1, 20) + hs(2, 16) + hs(3, 14) +
+    '<style:style style:name="TH" style:family="paragraph"><style:text-properties fo:font-weight="bold"/></style:style><style:style style:name="TB" style:family="table"><style:table-properties table:align="margins" style:width="17cm"/></style:style><style:style style:name="TC" style:family="table-cell"><style:table-cell-properties fo:padding="0.1cm" fo:border="0.5pt solid #000000"/></style:style>' +
+    '<text:list-style style:name="L"><text:list-level-style-bullet text:level="1" text:bullet-char="•"><style:list-level-properties text:list-level-position-and-space-mode="label-alignment"><style:list-level-label-alignment text:label-followed-by="listtab" text:list-tab-stop-position="0.9cm" fo:text-indent="-0.5cm" fo:margin-left="0.9cm"/></style:list-level-properties></text:list-level-style-bullet></text:list-style>' +
+    '<text:list-style style:name="N"><text:list-level-style-number text:level="1" style:num-suffix="." style:num-format="1"><style:list-level-properties text:list-level-position-and-space-mode="label-alignment"><style:list-level-label-alignment text:label-followed-by="listtab" text:list-tab-stop-position="0.9cm" fo:text-indent="-0.6cm" fo:margin-left="0.9cm"/></style:list-level-properties></text:list-level-style-number></text:list-style>';
+  return ofOdf('odt', '<office:text>' + b + '</office:text>', auto);
+}
+
+/* ---------- spreadsheet helpers ---------- */
+function ofSheets(spec) {
+  const used = new Set(), out = [];
+  (spec.sheets || []).slice(0, 8).forEach((s, idx) => {
+    let name = String(s.name || 'Sheet' + (idx + 1)).replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || 'Sheet' + (idx + 1);
+    let k = 2; const base = name; while (used.has(name.toLowerCase())) name = base.slice(0, 28) + ' ' + k++;
+    used.add(name.toLowerCase());
+    const rows = (s.rows || []).slice(0, 1000).map(r => Array.isArray(r) ? r.slice(0, 50) : Object.values(r || {}).slice(0, 50));
+    if (rows.length) {
+      const grid = (c, r, d) => { const v = rows[r] && rows[r][c]; if (typeof v === 'string' && /^=./.test(v)) return xlEvalFormula(v.slice(1), grid, d || 0); if (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim())) return +v; return v; };
+      out.push({ name, rows, grid, nc: Math.max(...rows.map(r => r.length), 1) });
+    }
+  });
+  if (!out.length) throw new Error('empty spreadsheet');
+  return out;
+}
+const ofIsF = v => typeof v === 'string' && /^=./.test(v) && !/^==/.test(v);
+function specToOds(spec) {
+  const body = ofSheets(spec).map(sh => {
+    const rows = sh.rows.map((r, ri) => {
+      let cs = '';
+      for (let c = 0; c < sh.nc; c++) {
+        const v = r[c], hc = ri === 0 ? ' table:style-name="HC"' : '';
+        if (v === null || v === undefined || v === '') cs += '<table:table-cell' + hc + '/>';
+        else if (typeof v === 'number' && isFinite(v)) cs += '<table:table-cell office:value-type="float" office:value="' + v + '"><text:p>' + v + '</text:p></table:table-cell>';
+        else if (typeof v === 'boolean') cs += '<table:table-cell office:value-type="boolean" office:boolean-value="' + v + '"><text:p>' + String(v).toUpperCase() + '</text:p></table:table-cell>';
+        else if (ofIsF(v)) {
+          const f = 'of:=' + v.slice(1).replace(/\b([A-Z]{1,3}\d{1,5})(?::([A-Z]{1,3}\d{1,5}))?\b(?!\s*\()/g, (m, a, b) => b ? '[.' + a + ':.' + b + ']' : '[.' + a + ']').replace(/,/g, ';'), cv = xlEvalFormula(v.slice(1), sh.grid, 0);
+          cs += typeof cv === 'number' && isFinite(cv) ? '<table:table-cell table:formula="' + XE(f) + '" office:value-type="float" office:value="' + cv + '"><text:p>' + cv + '</text:p></table:table-cell>' : '<table:table-cell table:formula="' + XE(f) + '"/>';
+        } else if (ri > 0 && /^-?\d+(\.\d+)?$/.test(String(v).trim())) cs += '<table:table-cell office:value-type="float" office:value="' + String(v).trim() + '"><text:p>' + String(v).trim() + '</text:p></table:table-cell>';
+        else cs += '<table:table-cell' + hc + ' office:value-type="string"><text:p>' + XE(v) + '</text:p></table:table-cell>';
+      }
+      return '<table:table-row>' + cs + '</table:table-row>';
+    }).join('');
+    return '<table:table table:name="' + XE(sh.name) + '"><table:table-column table:number-columns-repeated="' + sh.nc + '"/>' + rows + '</table:table>';
+  }).join('');
+  const auto = '<style:style style:name="HC" style:family="table-cell"><style:table-cell-properties fo:background-color="#1f4e79"/><style:text-properties fo:font-weight="bold" fo:color="#ffffff"/></style:style>';
+  return ofOdf('ods', '<office:spreadsheet>' + body + '</office:spreadsheet>', auto);
+}
+
+/* ---------- .xls (Excel HTML: opens in Excel and every spreadsheet app) ---------- */
+function specToXlsHtml(spec) {
+  const t = ofSheets(spec).map(sh => '<table border="1"><caption>' + XE(sh.name) + '</caption>' + sh.rows.map((r, ri) => {
+    let cs = '';
+    for (let c = 0; c < sh.nc; c++) {
+      const v = r[c], tg = ri === 0 ? 'th' : 'td';
+      if (ofIsF(v)) { const cv = xlEvalFormula(v.slice(1), sh.grid, 0); cs += '<td x:fmla="' + XE(v) + '">' + (cv == null ? '' : XE(cv)) + '</td>'; }
+      else cs += '<' + tg + '>' + XE(v) + '</' + tg + '>';
+    }
+    return '<tr>' + cs + '</tr>';
+  }).join('') + '</table><br>').join('');
+  return new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body>' + t + '</body></html>'], { type: OF_MIME.xls });
+}
+
+/* ---------- .odp ---------- */
+function specToOdp(spec) {
+  const light = spec.theme === 'light', bg = light ? '#ffffff' : '#0f172a', fg = light ? '#111827' : '#f8fafc', ac = '#f472b6';
+  const fr = (y, h, p, x) => '<draw:frame draw:style-name="gr1" svg:x="1.5cm" svg:y="' + y + 'cm" svg:width="25cm" svg:height="' + h + 'cm"><draw:text-box>' + p + '</draw:text-box></draw:frame>';
+  const pg = (n, inner) => '<draw:page draw:name="Slide' + n + '" draw:style-name="dp1" draw:master-page-name="Default">' + inner + '</draw:page>';
+  const pages = [pg(1, fr(4.5, 3, '<text:p text:style-name="T0">' + XE(spec.title || 'Presentation') + '</text:p>') + fr(8.2, 2, '<text:p text:style-name="T2">' + XE(spec.subtitle || '') + '</text:p>'))];
+  (spec.slides || []).slice(0, 40).forEach((s, i) => pages.push(pg(i + 2, fr(0.8, 2.2, '<text:p text:style-name="T1">' + XE(s.title || '') + '</text:p>') + fr(3.4, 11, (s.bullets || []).slice(0, 8).map(b => '<text:p text:style-name="T3">• ' + XE(b) + '</text:p>').join('')))));
+  const ts = (n, sz, col, bold, al) => '<style:style style:name="' + n + '" style:family="paragraph"><style:paragraph-properties fo:text-align="' + (al || 'start') + '" fo:margin-bottom="0.2cm"/><style:text-properties fo:font-size="' + sz + 'pt" fo:color="' + col + '"' + (bold ? ' fo:font-weight="bold"' : '') + '/></style:style>';
+  const auto = '<style:style style:name="dp1" style:family="drawing-page"><style:drawing-page-properties draw:background-size="border" draw:fill="solid" draw:fill-color="' + bg + '"/></style:style><style:style style:name="gr1" style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>' + ts('T0', 40, fg, 1, 'center') + ts('T1', 30, ac, 1) + ts('T2', 20, fg, 0, 'center') + ts('T3', 22, fg, 0);
+  const styles = '<office:automatic-styles><style:page-layout style:name="PM1"><style:page-layout-properties fo:page-width="28cm" fo:page-height="15.75cm" style:print-orientation="landscape" fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm"/></style:page-layout></office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="PM1"/></office:master-styles>';
+  return ofOdf('odp', '<office:presentation>' + pages.join('') + '</office:presentation>', auto, styles);
+}
+
+/* ---------- one entry point used by cmd.js ---------- */
+async function ofVariant(ext, d) {
+  if (OF_RETYPE[ext]) return ofRetype(d.blob, ext);
+  if (ext === 'rtf') return mdToRtf(d.md);
+  if (ext === 'odt') return mdToOdt(d.md);
+  if (ext === 'doc') return mdToWordHtml(d.md, d.title);
+  if (ext === 'ods') return specToOds(d.spec);
+  if (ext === 'xls') return specToXlsHtml(d.spec);
+  if (ext === 'odp') return specToOdp(d.spec);
+  return d.blob;
 }

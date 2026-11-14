@@ -15,7 +15,7 @@
     md: { i: '📃', l: 'Markdown', e: 'md', m: 'md' }, txt: { i: '📃', l: 'Text', e: 'txt', m: 'raw' },
     csv: { i: '🧾', l: 'CSV', e: 'csv', m: 'raw' }, json: { i: '🧩', l: 'JSON', e: 'json', m: 'raw' }, xml: { i: '🧩', l: 'XML', e: 'xml', m: 'raw' },
     html: { i: '🌐', l: 'Web page', e: 'html', m: 'raw' }, ics: { i: '📅', l: 'Calendar', e: 'ics', m: 'raw' }, vcf: { i: '👤', l: 'Contact', e: 'vcf', m: 'raw' },
-    zip: { i: '🗜', l: 'ZIP project', e: 'zip', m: 'zip' }, code: { i: '💻', l: 'Code', e: 'txt', m: 'raw' }
+    zip: { i: '🗜', l: 'ZIP project', e: 'zip', m: 'zip' }, tsv: { i: '🧾', l: 'TSV', e: 'tsv', m: 'raw' }, htm: { i: '🌐', l: 'Web page', e: 'htm', m: 'raw' }, eml: { i: '✉️', l: 'Email', e: 'eml', m: 'raw' }, code: { i: '💻', l: 'Code', e: 'txt', m: 'raw' }
   };
   const TPL = {
     resume: { k: 'docx', h: 'This is a CV / resume. Layout: "# Full name", one contact line, ## Professional Summary, ## Education, ## Skills, ## Projects, ## Experience, ## Languages. Use ONLY facts the user gave; for anything missing write a [placeholder in brackets]. Never invent degrees, employers or numbers.' },
@@ -27,7 +27,13 @@
     attendance: { k: 'xlsx', h: 'This is an attendance sheet: Roll No, Name, then day columns (1 = present, 0 = absent), then a Total present column using a SUM formula.' }
   };
   const CODE_EXT = { python: 'py', py: 'py', javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', java: 'java', c: 'c', cpp: 'cpp', 'c++': 'cpp', csharp: 'cs', 'c#': 'cs', cs: 'cs', php: 'php', sql: 'sql', css: 'css', go: 'go', rust: 'rs', rs: 'rs', kotlin: 'kt', kt: 'kt', swift: 'swift', bash: 'sh', sh: 'sh', r: 'r', dart: 'dart', ruby: 'rb', rb: 'rb', html: 'html' };
-  const EXT_KIND = { docx: 'docx', doc: 'docx', xlsx: 'xlsx', pptx: 'pptx', pdf: 'pdf', md: 'md', zip: 'zip' };
+  const VARIANTS = {
+    docx: [['doc', 'Word 97-2003 (.doc)'], ['docm', 'Word macro-enabled (.docm)'], ['dotx', 'Word template (.dotx)'], ['dotm', 'Word macro-enabled template (.dotm)'], ['rtf', 'Rich Text Format (.rtf)'], ['odt', 'OpenDocument text (.odt)']],
+    xlsx: [['xls', 'Excel 97-2003 (.xls)'], ['xlsm', 'Excel macro-enabled (.xlsm)'], ['xltx', 'Excel template (.xltx)'], ['xltm', 'Excel macro-enabled template (.xltm)'], ['ods', 'OpenDocument spreadsheet (.ods)']],
+    pptx: [['pptm', 'PowerPoint macro-enabled (.pptm)'], ['ppsx', 'PowerPoint slideshow (.ppsx)'], ['ppsm', 'PowerPoint macro-enabled slideshow (.ppsm)'], ['potx', 'PowerPoint template (.potx)'], ['potm', 'PowerPoint macro-enabled template (.potm)'], ['odp', 'OpenDocument presentation (.odp)']]
+  };
+  const VAR_KIND = {}; Object.keys(VARIANTS).forEach(k => VARIANTS[k].forEach(v => VAR_KIND[v[0]] = k));
+  const EXT_KIND = { docx: 'docx', xlsx: 'xlsx', pptx: 'pptx', pdf: 'pdf', md: 'md', zip: 'zip', tsv: 'tsv', htm: 'htm', eml: 'eml' };
 
   /* ---------- small helpers ---------- */
   const prefill = t => { const q = $('q'); q.value = t; go('chat'); q.focus(); q.dispatchEvent(new Event('input')); };
@@ -109,7 +115,7 @@
     pp: (req, o) => 'Create a presentation. Request: "' + req + '"\n' + (o.hint || '') + '\nReply with ONLY valid JSON (no code fence) in exactly this shape:\n{"title":"Deck title","subtitle":"short subtitle","theme":"dark","slides":[{"title":"Slide title","bullets":["short point","short point"],"notes":"speaker notes"},{"title":"A chart","chart":{"type":"bar","labels":["A","B"],"values":[1,2]}},{"title":"A table","table":[["Col 1","Col 2"],["a","b"]]}]}\nRules: theme is "dark" or "light". Use 6 to 12 content slides unless the user asked for a number. Max 6 bullets per slide, each under 15 words. Include an agenda/overview slide and a summary/conclusion slide. Use chart or table slides only when data helps. Never invent statistics: use only data from the request or well-known facts.',
     zip: (req, o) => 'Create a small multi-file project. Request: "' + req + '"\n' + (o.hint || '') + '\nOutput EVERY file in exactly this format and nothing else:\n=== FILE: path/name.ext ===\n(file content)\n=== END ===\nInclude a README.md. Max 12 files. Working, clean, commented code.',
     raw: (req, o, K, ext) => {
-      const rules = { csv: 'A valid CSV with a header row, comma separated; quote fields that contain commas.', json: 'Valid JSON only.', html: 'ONE complete self-contained HTML file with inline CSS and JS, mobile friendly, no external files or images.', xml: 'Well-formed XML only.', ics: 'A valid iCalendar file (BEGIN:VCALENDAR ... END:VCALENDAR) with VEVENT, DTSTART, DTEND, SUMMARY and DESCRIPTION. Today is ' + new Date().toISOString().slice(0, 10) + '.', vcf: 'A valid vCard 3.0 file.', txt: 'Plain text only, no markdown symbols.' }[ext] || 'Clean, well-commented, working content.';
+      const rules = { csv: 'A valid CSV with a header row, comma separated; quote fields that contain commas.', json: 'Valid JSON only.', html: 'ONE complete self-contained HTML file with inline CSS and JS, mobile friendly, no external files or images.', xml: 'Well-formed XML only.', ics: 'A valid iCalendar file (BEGIN:VCALENDAR ... END:VCALENDAR) with VEVENT, DTSTART, DTEND, SUMMARY and DESCRIPTION. Today is ' + new Date().toISOString().slice(0, 10) + '.', vcf: 'A valid vCard 3.0 file.', txt: 'Plain text only, no markdown symbols.', tsv: 'A valid TSV file: header row first, columns separated by a TAB character, no quotes needed.', htm: 'ONE complete self-contained HTML file with inline CSS and JS, mobile friendly, no external files or images.', eml: 'A valid RFC 822 email (.eml): headers From:, To:, Subject:, Date:, MIME-Version: 1.0, Content-Type: text/plain; charset=UTF-8, then a blank line and the body. Use [brackets] for unknown addresses.' }[ext] || 'Clean, well-commented, working content.';
       return 'Create the file "' + (o.name || 'file.' + ext) + '". Request: "' + req + '"\n' + (o.hint || '') + '\n' + rules + '\nReply with ONLY the complete file content inside ONE fenced code block. No explanation.';
     }
   };
@@ -142,7 +148,7 @@
       const title = ofStrip((m.match(/^\s*#\s+(.+)/m) || [])[1] || slug(o.req) || 'Document');
       const name = o.name || ofFileName(title, ext);
       const R = { name, source: m, full: m, hist: m.slice(0, 3500), preview: () => showText(name, m, 'summary', false) };
-      if (kind === 'docx') R.blob = mdToDocx(m, { title });
+      if (kind === 'docx') { R.blob = mdToDocx(m, { title }); if (ext !== 'docx') R.blob = await ofVariant(ext, { md: m, title, blob: R.blob }); }
       else if (kind === 'md') R.blob = new Blob([m], { type: OF_MIME.md });
       else R.print = () => toPdf(m);
       return R;
@@ -154,8 +160,8 @@
         spec = parseJsonLoose(r.full);
       }
       if (!spec || !Array.isArray(spec.sheets)) throw new Error('The AI answered in the wrong format. Please try again.');
-      const blob = specToXlsx(spec), s0 = spec.sheets[0] || {};
-      const name = o.name || ofFileName(slug(o.req) || s0.name || 'spreadsheet', 'xlsx');
+      let blob = specToXlsx(spec); const s0 = spec.sheets[0] || {}; if (ext !== 'xlsx') blob = await ofVariant(ext, { spec, blob });
+      const name = o.name || ofFileName(slug(o.req) || s0.name || 'spreadsheet', ext);
       const pv = spec.sheets.slice(0, 3).map(s => '### ' + (s.name || 'Sheet') + '\n' + tableMd((s.rows || []).filter(Array.isArray))).join('\n\n');
       return { name, blob, full: JSON.stringify(spec), source: pv, hist: pv.slice(0, 3000), preview: () => showText(name, pv, 'summary', false) };
     }
@@ -166,8 +172,8 @@
         spec = parseJsonLoose(r.full);
       }
       if (!spec || !Array.isArray(spec.slides) || !spec.slides.length) throw new Error('The AI answered in the wrong format. Please try again.');
-      await pptLib();
-      const blob = await specToPptx(spec), name = o.name || ofFileName(spec.title || slug(o.req) || 'presentation', 'pptx');
+      let blob; if (ext === 'odp') blob = await ofVariant(ext, { spec }); else { await pptLib(); blob = await specToPptx(spec); if (ext !== 'pptx') blob = await ofVariant(ext, { blob }); }
+      const name = o.name || ofFileName(spec.title || slug(o.req) || 'presentation', ext);
       const pv = '## ' + (spec.title || '') + '\n' + spec.slides.map((s, i) => '### ' + (i + 1) + '. ' + (s.title || '') + '\n' + (s.bullets || []).map(b => '- ' + b).join('\n') + (s.chart ? '\n- 📈 chart' : '') + (s.table ? '\n- 📋 table' : '')).join('\n\n');
       return { name, blob, full: JSON.stringify(spec), source: pv, hist: pv.slice(0, 3000), preview: () => showText(name, pv, 'summary', false) };
     }
@@ -179,9 +185,9 @@
     }
     /* raw text-like file */
     const code = extractCode(full), name = o.name || ofFileName(slug(o.req) || 'file', ext);
-    const blob = new Blob([(ext === 'csv' ? '\ufeff' : '') + code], { type: OF_MIME[ext] || 'text/plain;charset=utf-8' });
+    const blob = new Blob([(ext === 'csv' || ext === 'tsv' ? '\ufeff' : '') + code], { type: OF_MIME[ext] || 'text/plain;charset=utf-8' });
     const pv = '```\n' + code.slice(0, 8000) + '\n```';
-    return { name, blob, full: code, source: code, hist: pv.slice(0, 3000), preview: () => ext === 'html' ? preview('```html\n' + code + '\n```') : showText(name, pv, 'summary', false) };
+    return { name, blob, full: code, source: code, hist: pv.slice(0, 3000), preview: () => ext === 'html' || ext === 'htm' ? preview('```html\n' + code + '\n```') : showText(name, pv, 'summary', false) };
   }
 
   async function share(rec) {
@@ -261,7 +267,7 @@
     { g: GS, c: ['focus', 'timer', 'pomodoro'], d: 'Focus timer (25 + 5)', f: () => focus() },
     { g: GS, c: ['save'], d: 'Save the last answer to My library', f: () => { const t = lastAnswer(); t ? saveLib({ type: 'note', title: titleOf(t), content: t }) : toast('Nothing to save yet'); } },
 
-    fil(['word', 'docx', 'doc'], 'docx', 'Word document (.docx)', '/word Notes on Photosynthesis'),
+    fil(['word', 'docx'], 'docx', 'Word document (.docx)', '/word Notes on Photosynthesis'),
     fil(['excel', 'xlsx', 'sheet', 'spreadsheet'], 'xlsx', 'Excel sheet with formulas (.xlsx)', '/excel Monthly expense tracker'),
     fil(['ppt', 'pptx', 'powerpoint', 'slides', 'presentation'], 'pptx', 'PowerPoint deck (.pptx)', '/ppt Climate change 8 slides'),
     fil(['pdf'], 'pdf', 'PDF document', '/pdf Study plan for finals'),
@@ -273,6 +279,10 @@
     fil(['html', 'webpage', 'website'], 'html', 'Web page (.html)', '/html Portfolio page for a student'),
     fil(['ics', 'calendar', 'event'], 'ics', 'Calendar event (.ics) for Outlook / Google', '/ics Math exam on 20 December 9am'),
     fil(['vcf', 'contact'], 'vcf', 'Contact card (.vcf)', '/vcf Ali Khan 0300 1234567'),
+    fil(['tsv'], 'tsv', 'Tab-separated values (.tsv)', '/tsv 10 students with marks'),
+    fil(['htm'], 'htm', 'Web page (.htm)', '/htm Portfolio page'),
+    fil(['eml', 'mail'], 'eml', 'Email message (.eml)', '/eml Leave application to my teacher'),
+    ...Object.keys(VARIANTS).flatMap(k => VARIANTS[k].map(v => fil([v[0]], k, v[1], '/' + v[0] + ' Your topic here', { ext: v[0] }))),
     fil(['zip', 'project'], 'zip', 'Multi-file project as .zip', '/zip Simple calculator website'),
     tpl(['resume', 'cv', 'biodata'], 'resume', 'Resume / CV (Word)', '/cv BS Computer Science fresher'),
     tpl(['letter', 'application'], 'letter', 'Letter / application (Word)', '/letter Leave application for 2 days'),
@@ -285,8 +295,8 @@
       g: GF, c: ['file'], d: 'Any file: name + what you want', u: '/file notes.docx Chapter 3 summary', f: (a, n) => {
         const m = a.match(/^([^\s\/\\]+\.(\w{1,5}))\s*([\s\S]*)$/);
         if (!m) { toast('Start with a file name, e.g. /file notes.docx topic'); return prefill('/file '); }
-        const e = m[2].toLowerCase(), kind = EXT_KIND[e] || (FK[e] ? e : 'code');
-        return cmdFile(kind, m[3], { cmd: n, ext: FK[kind] && kind !== 'code' ? undefined : e, name: ofFileName(m[1].replace(/\.\w+$/, ''), e), hint: kind === 'code' ? 'Write clean, well-commented, working content for this file.' : '' });
+        const e = m[2].toLowerCase(), kind = VAR_KIND[e] || EXT_KIND[e] || (FK[e] ? e : 'code');
+        return cmdFile(kind, m[3], { cmd: n, ext: VAR_KIND[e] ? e : FK[kind] && kind !== 'code' ? undefined : e, name: ofFileName(m[1].replace(/\.\w+$/, ''), e), hint: kind === 'code' ? 'Write clean, well-commented, working content for this file.' : '' });
       }
     },
     {
@@ -328,7 +338,7 @@
     }
     if (attach && !q) return false;
     const it = ofIntent(q);
-    if (it && it.type === 'file') { clearInput(); await cmdFile(it.kind, q, { cmd: it.kind, hint: it.tpl ? TPL[it.tpl].h : '', shown: q }); return true; }
+    if (it && it.type === 'file') { clearInput(); await cmdFile(it.kind, q, { cmd: it.kind, ext: it.ext || undefined, hint: it.tpl ? TPL[it.tpl].h : '', shown: q }); return true; }
     if (it && it.type === 'study') { clearInput(); await cmdStudy(it.kind === 'quiz' ? 'quiz' : 'cards', q, it.kind); return true; }
     return false;
   };

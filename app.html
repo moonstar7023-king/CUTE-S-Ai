@@ -4,11 +4,11 @@
 <header><img src="icon.png?v=2" alt=""><div class="ttl">CUTE-S-<b>AI</b></div><button class="ib" id="hb" title="Chat history">🕘</button><button class="ib" id="nc" title="New chat">✏️</button>
 <button class="ib" id="st" title="Settings">⚙️</button></header>
 <main>
-<section id="chat" class="view on"><div class="cb"><button class="chip on" id="cm">⌘ Commands</button><button class="chip" id="pj">📁 No project</button><button class="chip" id="dp">🧠 Deep: off</button>
+<section id="chat" class="view on"><div class="cb"><button class="chip on" id="cm" style="display:none">⌘ Commands</button><button class="chip" id="pj">📁 No project</button><button class="chip" id="dp">🧠 Deep: off</button>
 <button class="chip" id="sr">🔍 Search: off</button>
 <button class="chip" id="rs">🧪 Research</button>
-<button class="chip" id="cn">🔌 Connect</button><button class="chip" id="im">🖼 Images</button><button class="chip" id="tl">🛠 Tools</button><button class="chip" id="ft">⏱ Focus</button></div><div id="msgs"></div><div class="ap" id="ap" hidden></div>
-<div class="bar"><button class="ib" id="at" aria-label="Attach a file">📎</button><input type="file" id="af" accept="application/pdf,image/*,text/plain,.txt,.md,.csv,.xlsx,.xls" style="display:none"><textarea id="q" rows="1" placeholder="Ask anything, or type / for commands..."></textarea><button class="ib" id="mic" aria-label="Speak">🎤</button><button class="send" id="send" aria-label="Send">➤</button></div></section>
+<button class="chip" id="cn">🔌 Connect</button><button class="chip" id="im" style="display:none">🖼 Images</button><button class="chip" id="tl" style="display:none">🛠 Tools</button><button class="chip" id="ft">⏱ Focus</button></div><div id="msgs"></div><div class="ap" id="ap" hidden></div>
+<div class="bar"><button class="ib" id="at" aria-label="Attach a file">📎</button><input type="file" id="af" accept="application/pdf,image/*,text/plain,.txt,.md,.csv,.xlsx,.xls" style="display:none"><textarea id="q" rows="1" placeholder="Ask anything, or say: make a ppt on AI, draw a cat..."></textarea><button class="ib" id="mic" aria-label="Speak">🎤</button><button class="send" id="send" aria-label="Send">➤</button></div></section>
 <section id="lib" class="view"><h3>Notes Library</h3><input id="s" placeholder="🔍 Search title, subject, university"><div class="row"><input id="fu" list="ul" placeholder="University"><input id="fs" list="sl" placeholder="Subject"></div><button class="pb" id="ld">Search</button><div id="list"></div><button class="pb" id="more" hidden>Show more</button><datalist id="ul"></datalist><datalist id="sl"></datalist></section>
 <section id="up" class="view"><h3>Share your notes</h3><input id="t" maxlength="100" placeholder="Title"><div class="row"><input id="u" maxlength="60" placeholder="University"><input id="sb" maxlength="60" placeholder="Subject"></div>
 <textarea class="f" id="tx" rows="7" maxlength="20000" placeholder="Notes text (optional if you attach a file)"></textarea><input id="f" type="file" accept="application/pdf,image/*">
@@ -25,6 +25,6 @@ function say0(t){var d=document.getElementById("msg");if(d)d.textContent=t}
  var G="https://www.gstatic.com/firebasejs/10.12.2/firebase-",J="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-";
  for(var f of ["app","auth","firestore"])await ld([G+f+"-compat.js",J+f+"-compat.js"]);
  try{await ld([G+"storage-compat.js",J+"storage-compat.js"])}catch(e){}
- await ld(["firebase-config.js?v=3"]);await ld(["app.js?v=21"]);await ld(["image.js?v=2"]);await ld(["office.js?v=1"]);await ld(["cmd.js?v=1"]);
+ await ld(["firebase-config.js?v=3"]);await ld(["app.js?v=21"]);await ld(["image.js?v=2"]);await ld(["office.js?v=3"]);await ld(["cmd.js?v=3"]);
 }catch(e){say0("Could not load the app. Check your internet, VPN or Private DNS, then refresh.")}})();
 </script></body></html>
