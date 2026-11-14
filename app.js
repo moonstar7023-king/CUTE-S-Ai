@@ -5,7 +5,7 @@ $('out').onclick=()=>auth.signOut();
 function go(v){document.querySelectorAll('nav button,.view').forEach(x=>x.classList.remove('on'));document.querySelector('nav [data-v='+v+']').classList.add('on');$(v).classList.add('on');document.body.dataset.v=v}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
 const SYS={role:'system',content:'You are CUTE-S-AI, a free, friendly AI assistant made for students and open to everyone. Studies come first: explain step by step, make notes, quizzes and summaries, solve problems, and help with exams, assignments and coding. You can also help with everything else a good AI assistant does: poems, stories, translation, emails, advice, ideas and everyday questions. Make every task easy: give clear, simple, well-organised answers and offer a helpful next step. Reply in the language the user uses (Urdu, Roman Urdu or English). Be warm and kind. Never help with anything harmful, illegal, dangerous, hateful or sexual, or anything that could hurt someone; decline politely and suggest a safe alternative. Greet back in the same style: Assalam-o-Alaikum gets Walaikum Assalam, Namashty or Namaste gets Namashty, Hello gets Hello. Never say just Salam.'};
-const SG=['Explain OOP concepts with simple examples','Make short exam notes on Pointers in C++','Quiz me with 5 MCQs on Software Engineering','Summarize this topic in Roman Urdu: Database normalization'];
+const SG=['Explain OOP concepts with simple examples','/quiz 5 Software Engineering','/ppt Climate change 8 slides','/image a cute rabbit studying under a lamp','/excel Monthly student budget','/word Notes on Database normalization'];
 
 const SAY={idle:['Main yahin hoon 💗'],listen:['Main sun raha hoon 👂','Boliye, boliye 🐰'],think:['Hmm... soch raha hoon 🤔','Ek second, dhoond raha hoon 💭'],happy:['Yay, jawab ready! 🎉','Dekha? Maine kar diya 😄'],love:['Aapka shukriya! 💗','Aww, aap bohot achhe ho 🥰'],sad:['Oops, kuch gadbad ho gayi 🥺','Sorry, dobara try karein 💔'],hug:['Main hoon na 🤗','Fikar na karein, sab theek hoga 💗'],cheer:['All the best! 💪✨','Aap zaroor top karoge! ⭐'],wave:['Assalam-o-Alaikum! 👋💗','Namashty! 🙏💗','Hello! 👋🐰'],sleep:['Zzz... 😴','Nind aa rahi hai 💤'],talk:['Batata hoon... 💬']};
 const PP={happy:['✨','🎉','⭐'],cheer:['💪','✨','⭐'],love:['💗','💖','💕'],sad:['💧'],hug:['💗','🤗'],think:['💭'],sleep:['💤'],wave:['💗']};
@@ -36,13 +36,19 @@ function md(t){let h=esc(t);const blocks=[];
  h=h.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,l,c)=>{let o=null;if(l==='chart'){try{const v=chartSvg(JSON.parse(unesc(c)));if(v)o='<div class="chart">'+v+'</div>'}catch(e){}}else if(l==='mermaid')o='<div class="mm" data-src="'+c.trim().replace(/\n/g,'&#10;')+'"><pre><code>'+c+'</code></pre></div>';blocks.push(o||'<pre><code>'+c+'</code></pre>');return '\u0000'+(blocks.length-1)+'\u0000'});
  const inl=s=>s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
  const out=[];let list=null;const close=()=>{if(list){out.push('</'+list+'>');list=null}};
- h.split('\n').forEach(line=>{let m;
+ const LS=h.split('\n');
+ for(let li=0;li<LS.length;li++){const line=LS[li];let m;
+  if(/^\s*\|.*\|\s*$/.test(line)&&li+1<LS.length&&/^\s*\|[\s:|-]+\|\s*$/.test(LS[li+1])){close();
+   const cl=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+   let t='<div class="tw"><table><thead><tr>'+cl(line).map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr></thead><tbody>';li+=2;
+   while(li<LS.length&&/^\s*\|.*\|\s*$/.test(LS[li])){t+='<tr>'+cl(LS[li]).map(c=>'<td>'+inl(c)+'</td>').join('')+'</tr>';li++}
+   li--;out.push(t+'</tbody></table></div>');continue}
   if((m=line.match(/^\s*[-*•]\s+(.*)/))){if(list!=='ul'){close();out.push('<ul>');list='ul'}out.push('<li>'+inl(m[1])+'</li>')}
   else if((m=line.match(/^\s*\d+[.)]\s+(.*)/))){if(list!=='ol'){close();out.push('<ol>');list='ol'}out.push('<li>'+inl(m[1])+'</li>')}
   else if((m=line.match(/^\s*#{1,4}\s+(.*)/))){close();out.push('<h4>'+inl(m[1])+'</h4>')}
   else if(/^\u0000\d+\u0000$/.test(line.trim())){close();out.push(line.trim())}
   else if(!line.trim()){close()}
-  else{close();out.push('<p>'+inl(line)+'</p>')}});
+  else{close();out.push('<p>'+inl(line)+'</p>')}}
  close();return out.join('').replace(/\u0000(\d+)\u0000/g,(_,i)=>blocks[i])}
 
 /* ---------- chat bubbles ---------- */
@@ -89,9 +95,10 @@ function sysMsg(){let c=SYS.content;const p=profile;
 
 /* ---------- send a message ---------- */
 async function ask(){const q=$('q').value.trim();if((!q&&!attach)||busy)return;
+ if(window.cmdRoute&&await cmdRoute(q))return;
  if(!attach&&isImg(q)){$('q').value='';$('q').style.height='auto';return chatImage(q)}
  let content=q,shown=q;
- if(attach){content=(q||'Summarize this file for me.')+'\n\n[Attached file: '+attach.name+']\n'+attach.text;shown=(q||'Summarize this file')+'\n📎 '+attach.name;clearAttach()}
+ if(attach){content=(q||'Summarize this file for me.')+'\n\n[Attached file: '+attach.name+']\n'+(attach.text||'(This is a photo; no readable text was found in it.)');shown=(q||'Summarize this file')+'\n📎 '+attach.name;clearAttach()}
  $('q').value='';$('q').style.height='auto';await run(content,shown)}
 async function run(content,shown){busy=true;$('send').disabled=true;
  if(!await puterReady()){busy=false;$('send').disabled=false;return}
@@ -183,14 +190,14 @@ $('at').onclick=()=>$('af').click();
 $('af').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
  if(f.size>10*1024*1024)return alert('This file is too large. Maximum is 10 MB.');
  attach=null;showAttach(f.name,'reading...');
- try{let text='';
+ try{let text='',isImgF=false;
   if(f.type==='application/pdf')text=await pdfText(f);
-  else if(f.type.startsWith('image/'))text=await imgText(f);
+  else if(f.type.startsWith('image/')){isImgF=true;try{text=await imgText(f)}catch(x){text=''}}
   else if(f.type.startsWith('text/')||/\.(txt|md)$/i.test(f.name))text=await f.text();
   else if(/\.(csv|xlsx|xls)$/i.test(f.name))text=await sheetText(f);
   else throw new Error('Please choose a PDF, image, text, CSV or Excel file.');
-  text=text.trim();if(!text)throw new Error('No readable text found in this file.');
-  attach={name:f.name,text:text.slice(0,12000)};if(/\.(csv|xlsx|xls)$/i.test(f.name)&&!$('q').value)$('q').value='Analyze this data: key numbers, trends and a chart.';showAttach(f.name,text.length>12000?'first part used':'ready')}
+  text=text.trim();if(!text&&!isImgF)throw new Error('No readable text found in this file.');
+  attach={name:f.name,text:text.slice(0,12000),file:isImgF?f:null,isImg:isImgF};if(/\.(csv|xlsx|xls)$/i.test(f.name)&&!$('q').value)$('q').value='Analyze this data: key numbers, trends and a chart.';showAttach(f.name,text.length>12000?'first part used':'ready')}
  catch(x){clearAttach();alert(x.message||'Could not read this file.')}};
 
 /* ---------- voice in / out ---------- */
@@ -216,10 +223,10 @@ function parseJ(s,kind){const m=s.match(/\[[\s\S]*\]/);if(!m)return null;let a;t
 const GP={summary:'Turn the material below into short, exam-ready study notes: key points as bullets, important terms in bold, and a 3-line recap at the end.',
  cards:'Create 8 to 12 flashcards from the material below. Reply with ONLY a JSON array and no other text, like [{"q":"question","a":"short answer"}].',
  quiz:'Create a 6-question multiple-choice quiz from the material below. Reply with ONLY a JSON array and no other text, like [{"q":"question","o":["option A","option B","option C","option D"],"a":0,"why":"one-line explanation"}], where a is the index of the correct option.'};
-async function gen(kind,text){
+async function gen(kind,text,n){
  $('mc').innerHTML='<div class="ldw" style="padding:20px 0"><img class="ld" src="loading.gif" alt=""><span>Please wait...</span></div>';openModal();
  if(!await puterReady()){closeModal();return}
- const {full}=await aiCall([{role:'system',content:'You are a precise study assistant. Follow the requested output format exactly. Write in the same language as the material.'},{role:'user',content:GP[kind]+'\n\nMaterial:\n'+text.slice(0,12000)}]);
+ const {full}=await aiCall([{role:'system',content:'You are a precise study assistant. Follow the requested output format exactly. Write in the same language as the material.'},{role:'user',content:(n?GP[kind].replace(/\b6-question/,n+'-question').replace('8 to 12',String(n)):GP[kind])+'\n\nMaterial:\n'+text.slice(0,12000)}]);
  if(!full){$('mc').innerHTML='<p class="err">Could not create it. Please try again.</p>';return}
  const title=({summary:'Study notes',quiz:'Quiz',cards:'Flashcards'})[kind]+': '+titleOf(text);
  if(kind==='summary')return showText(title,full,'summary',true);
@@ -396,7 +403,7 @@ function dl(blob,name){const a=document.createElement('a');a.href=URL.createObje
 async function sheetText(f){await loadScript(XLS);const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
  return wb.SheetNames.slice(0,3).map(n=>'Sheet: '+n+'\n'+XLSX.utils.sheet_to_csv(wb.Sheets[n]).split('\n').slice(0,200).join('\n')).join('\n\n')}
 function toPdf(text){const f=document.createElement('iframe');f.style.cssText='position:fixed;width:0;height:0;border:0';document.body.append(f);const d=f.contentWindow.document;
- d.open();d.write('<html><head><meta charset="utf-8"><title>CUTE-S-AI</title><style>body{font-family:Arial,sans-serif;line-height:1.6;padding:24px;color:#000}pre{background:#eee;padding:8px;white-space:pre-wrap}</style></head><body>'+md(text)+'</body></html>');d.close();
+ d.open();d.write('<html><head><meta charset="utf-8"><title>CUTE-S-AI</title><style>@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;line-height:1.6;color:#000}h4{font-size:19px;margin:16px 0 6px;color:#b30d22}pre{background:#eee;padding:8px;white-space:pre-wrap}table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border:1px solid #999;padding:5px 8px;text-align:start}th{background:#eee}</style></head><body>'+md(text).replace(/<(p|li|h4)>/g,'<$1 dir="auto">')+'</body></html>');d.close();
  setTimeout(()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),60000)},400)}
 async function toXlsx(text,name){await loadScript(XLS);const rows=[];let t=[];const flush=()=>{if(t.length){rows.push(...t,[]);t=[]}};
  text.split('\n').forEach(l=>{if(/^\s*\|.*\|\s*$/.test(l)){if(/^\s*\|[\s:|-]+\|\s*$/.test(l))return;t.push(l.trim().replace(/^\||\|$/g,'').split('|').map(c=>{c=c.trim();return c!==''&&!isNaN(c)?Number(c):c}))}else flush()});flush();
@@ -412,7 +419,7 @@ async function toPptx(text,name){await loadScript(PPT);const p=new PptxGenJS(),s
 function exportMenu(text){const c=$('mc');c.innerHTML='<h3>⬇️ Download</h3><div id="m_e"></div>';const L=$('m_e'),n=(titleOf(text).replace(/[^\w\u0600-\u06FF -]/g,'').trim().slice(0,40)||'cute-s-ai');
  const go2=fn=>async()=>{try{await fn();toast('Done 💗')}catch(e){alert('Could not create the file. Check your internet and try again.')}};
  mi(L,'📄 PDF (choose Save as PDF)',go2(()=>{closeModal();toPdf(text)}));
- mi(L,'📝 Word (.doc)',go2(()=>dl(new Blob(['\ufeff<html><head><meta charset="utf-8"></head><body>'+md(text)+'</body></html>'],{type:'application/msword'}),n+'.doc')));
+ mi(L,'📝 Word (.docx)',go2(()=>dl(mdToDocx(text,{title:n}),n+'.docx')));
  mi(L,'📊 Excel (.xlsx)',go2(()=>toXlsx(text,n)));
  mi(L,'📽 PowerPoint (.pptx)',go2(()=>toPptx(text,n)));
  mi(L,'📃 Text (.txt)',go2(()=>dl(new Blob([text],{type:'text/plain'}),n+'.txt')));openModal()}
@@ -435,7 +442,7 @@ function streak(){try{const t=new Date().toDateString(),y=new Date(Date.now()-86
  if(d.last!==t){d={last:t,n:d.last===y?(d.n||0)+1:1,best:Math.max(d.best||0,d.last===y?(d.n||0)+1:1)};localStorage.setItem('cs_streak',JSON.stringify(d))}return d}catch(e){return {n:1,best:1}}}
 const TOOLS=[['👶 Explain like I am 5','Explain this like I am 5 years old, with a simple example: '],['🌍 Translate','Translate this into '+'Urdu and English, keep the meaning exact: '],['✍️ Fix my grammar','Fix the grammar and spelling, then show what you changed: '],['📝 Write an essay','Write a well-structured essay (intro, body, conclusion) on: '],['🧮 Solve step by step','Solve this step by step and explain each step: '],['🐞 Debug my code','Find the bug in this code, explain it, and give the fixed code:\n'],['🗺 Mind map','Make a mermaid mind map diagram for this topic: '],['📅 Study plan','Make a day-by-day study plan (with breaks) for: '],['🎤 Viva / interview practice','Act as an examiner. Ask me one question at a time on this topic, wait for my answer, then give feedback: '],['🧠 Memory tricks','Give me mnemonics and memory tricks to remember: '],['📋 Summarize in 5 points','Summarize in exactly 5 simple bullet points: '],['📧 Write an email','Write a polite, professional email for this situation: '],['📊 Compare in a table','Compare these in a table with pros and cons: '],['🔤 Word meanings','Give the meaning, an example sentence, and Urdu meaning of: ']];
 function tools(){const d=streak(),c=$('mc');c.innerHTML='<h3>🛠 Study tools</h3><p class="qw">🔥 Streak: <b>'+d.n+'</b> day'+(d.n===1?'':'s')+' · Best: '+(d.best||d.n)+'</p><div id="m_t" style="max-height:60vh;overflow-y:auto"></div>';
- TOOLS.forEach(([t,p])=>mi($('m_t'),t,()=>{closeModal();go('chat');const q=$('q');q.value=p;q.focus();q.dispatchEvent(new Event('oninput'));q.style.height='auto';q.style.height=Math.min(q.scrollHeight,120)+'px'}));
+ TOOLS.forEach(([t,p])=>mi($('m_t'),t,()=>{closeModal();go('chat');const q=$('q');q.value=p;q.focus();q.dispatchEvent(new Event('input'));q.style.height='auto';q.style.height=Math.min(q.scrollHeight,120)+'px'}));
  mi($('m_t'),'⏱ Focus timer (Pomodoro)',focus);openModal()}
 let FT={left:1500,mode:'work',run:false,id:null,done:0};
 function beep(){try{const a=new (window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.15;o.start();setTimeout(()=>{o.stop();a.close()},500)}catch(e){}try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}

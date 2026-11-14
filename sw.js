@@ -1,4 +1,4 @@
-const C='cutes-v7',A=['./','index.html','app.html','privacy.html','style.css','app.css','auth.js','app.js','image.js','firebase-config.js','manifest.json','logo.png','icon.png','ic-me.png','wm-ai.png','wm-notes.png','wm-upload.png','loading.gif'];
+const C='cutes-v8',A=['./','index.html','app.html','privacy.html','style.css','app.css','auth.js','app.js','image.js','office.js','cmd.js','firebase-config.js','manifest.json','logo.png','icon.png','ic-me.png','wm-ai.png','wm-notes.png','wm-upload.png','loading.gif'];
 const X=['www.gstatic.com','cdn.jsdelivr.net','cdnjs.cloudflare.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>Promise.all(A.map(u=>c.add(u).catch(()=>0)))));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))));self.clients.claim()});
